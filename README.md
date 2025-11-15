@@ -71,13 +71,31 @@
 - **Streak Analysis**
 - Time-based performance breakdown (hourly, daily, monthly)
 
-### 🎨 **Real-time Dashboard**
-- Livewire-powered reactive components
-- Bot status & controls
-- Live position monitoring
-- Trade history with filtering
-- Performance statistics
-- AI decision logs
+### 🎨 **Enterprise Trading Terminal UI**
+- **Professional TradingView-style interface** with dark theme
+- **Advanced Trading Charts** powered by Lightweight Charts
+  - Real-time candlestick charts with volume
+  - Multiple timeframes (1m, 5m, 15m, 30m, 1h, 4h, 1d)
+  - Symbol selector for 15 trading pairs
+  - Interactive chart controls and zoom
+- **Real-time Positions Panel**
+  - Live P&L tracking with current market prices
+  - Position details: Entry/Exit, Leverage, Duration
+  - Stop Loss / Take Profit distance indicators
+  - AI confidence scoring visualization
+- **Advanced Performance Metrics**
+  - Sharpe Ratio, Sortino Ratio, Max Drawdown
+  - Win rate, Profit Factor, Risk/Reward metrics
+  - Performance snapshots (hourly/daily)
+  - Equity curve visualization
+- **RESTful API Endpoints**
+  - Complete API for external integrations
+  - Real-time bot status and control
+  - Trade and position management
+  - Performance data export
+- **Reactive Components** with Livewire 3 & Alpine.js
+- **Redis Caching** for optimized performance
+- **Background Jobs** for data synchronization
 
 ### 🔧 **Advanced Order Management**
 - Multiple order types: Market, Limit, Stop, Stop-Limit, Trailing Stop
@@ -344,13 +362,30 @@ php artisan bot:status
 php artisan log:clear
 ```
 
-### API Endpoints (if enabled)
+### API Endpoints
 ```
-GET  /api/bot/status       - Get bot status
-POST /api/bot/start        - Start bot
-POST /api/bot/stop         - Stop bot
-GET  /api/trades           - Get trade history
-GET  /api/analytics        - Get performance analytics
+# Bot Control
+GET  /api/v1/bot/status              - Get bot status & statistics
+POST /api/v1/bot/start               - Start trading bot
+POST /api/v1/bot/stop                - Stop trading bot
+
+# Trades & Positions
+GET  /api/v1/trades                  - Get trade history (with filters)
+GET  /api/v1/trades/{id}             - Get specific trade details
+GET  /api/v1/positions               - Get open positions with real-time P&L
+
+# Performance Analytics
+GET  /api/v1/performance             - Get performance snapshots
+GET  /api/v1/performance/metrics     - Get advanced metrics (Sharpe, Sortino, etc.)
+
+# Chart Data
+GET  /api/v1/chart/{symbol}          - Get OHLCV chart data
+  Params: timeframe (5m, 15m, etc.), limit (default: 100)
+
+# Settings
+GET  /api/v1/settings                - Get all settings
+GET  /api/v1/settings/{key}          - Get specific setting
+PUT  /api/v1/settings                - Update settings
 ```
 
 ---
