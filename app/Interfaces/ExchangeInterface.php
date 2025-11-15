@@ -63,5 +63,5 @@ interface ExchangeInterface
     /**
      * Get order status
      */
-    public function getOrderStatus(string $orderId): array;
+    public function getOrderStatus(string $symbol, string $orderId): array;
 }

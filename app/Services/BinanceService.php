@@ -103,16 +103,24 @@ class BinanceService implements ExchangeInterface
             ])->post("{$this->baseUrl}/fapi/v1/order", $params);
 
             if ($response->successful()) {
-                return $response->json();
+                $data = $response->json();
+
+                return array_merge(['success' => true], $data);
             }
 
             Log::error('Failed to place market order', ['params' => $params, 'response' => $response->body()]);
 
-            return ['error' => $response->body()];
+            return [
+                'success' => false,
+                'error' => $response->body(),
+            ];
         } catch (\Exception $e) {
             Log::error('Exception placing market order', ['error' => $e->getMessage()]);
 
-            return ['error' => $e->getMessage()];
+            return [
+                'success' => false,
+                'error' => $e->getMessage(),
+            ];
         }
     }
 
@@ -145,16 +153,24 @@ class BinanceService implements ExchangeInterface
             ])->post("{$this->baseUrl}/fapi/v1/order", $params);
 
             if ($response->successful()) {
-                return $response->json();
+                $data = $response->json();
+
+                return array_merge(['success' => true], $data);
             }
 
             Log::error('Failed to place limit order', ['params' => $params, 'response' => $response->body()]);
 
-            return ['error' => $response->body()];
+            return [
+                'success' => false,
+                'error' => $response->body(),
+            ];
         } catch (\Exception $e) {
             Log::error('Exception placing limit order', ['error' => $e->getMessage()]);
 
-            return ['error' => $e->getMessage()];
+            return [
+                'success' => false,
+                'error' => $e->getMessage(),
+            ];
         }
     }
 
