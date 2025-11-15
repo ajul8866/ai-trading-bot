@@ -130,11 +130,64 @@
 ## 📦 Quick Start
 
 ### Prerequisites
-- Docker & Docker Compose (via Laravel Sail)
-- Binance Futures API keys
-- OpenRouter API key
 
-### Installation
+**Required:**
+- **PHP 8.2+** (8.4 recommended)
+- **Composer 2.x**
+- **Node.js 18+** & NPM
+- **SQLite** or **MySQL/PostgreSQL**
+- **Binance Futures Account** ([Create here](https://www.binance.com/en/futures/BTCUSDT))
+- **OpenRouter API Key** ([Get free key](https://openrouter.ai/keys))
+
+**Optional (Recommended):**
+- **Docker & Docker Compose** (easier setup via Laravel Sail)
+- **Redis** (for caching & queue - optional, falls back to database)
+- **Supervisor** (for production deployment)
+
+---
+
+## 🚀 Installation Guide
+
+### Option 1: Docker Installation (Recommended for Beginners)
+
+```bash
+# 1. Clone repository
+git clone https://github.com/ajul8866/ai-trading-bot.git
+cd ai-trading-bot
+
+# 2. Install Composer dependencies (host machine)
+composer install
+
+# 3. Copy environment file
+cp .env.example .env
+
+# 4. Configure environment (edit .env file)
+nano .env
+# Set the following:
+# - DB_CONNECTION=sqlite (or mysql if preferred)
+# - BINANCE_TESTNET=true (IMPORTANT: use testnet first!)
+
+# 5. Start Docker containers
+./vendor/bin/sail up -d
+
+# 6. Generate application key
+./vendor/bin/sail artisan key:generate
+
+# 7. Create database (if using SQLite)
+./vendor/bin/sail artisan migrate:fresh
+
+# 8. Run database migrations
+./vendor/bin/sail artisan migrate
+
+# 9. Install NPM dependencies (optional, for UI development)
+./vendor/bin/sail npm install
+./vendor/bin/sail npm run build
+
+# 10. Verify installation
+./vendor/bin/sail artisan --version
+```
+
+### Option 2: Local Installation (Without Docker)
 
 ```bash
 # 1. Clone repository
@@ -143,36 +196,559 @@ cd ai-trading-bot
 
 # 2. Install dependencies
 composer install
+npm install && npm run build
 
 # 3. Copy environment file
 cp .env.example .env
 
-# 4. Start Docker containers
-./vendor/bin/sail up -d
+# 4. Generate application key
+php artisan key:generate
 
-# 5. Generate application key
-./vendor/bin/sail artisan key:generate
+# 5. Create database
+touch database/database.sqlite
 
 # 6. Run migrations
-./vendor/bin/sail artisan migrate
-./vendor/bin/sail artisan db:seed --class=SettingsSeeder
+php artisan migrate
 
-# 7. Set API keys (via Tinker)
+# 7. Verify installation
+php artisan --version
+```
+
+---
+
+## ⚙️ Configuration
+
+### Step 1: Get API Keys
+
+#### 🔑 Binance API Keys
+
+**IMPORTANT: Start with Binance TESTNET first!**
+
+1. **For Testing (Testnet):**
+   - Visit: https://testnet.binancefuture.com
+   - Register for testnet account (free)
+   - Generate API keys in testnet dashboard
+   - Set `BINANCE_TESTNET=true` in .env
+
+2. **For Live Trading (After Testing):**
+   - Visit: https://www.binance.com/en/my/settings/api-management
+   - Create new API key
+   - Enable **Futures Trading** permission
+   - **DISABLE Withdrawals** (security!)
+   - Whitelist your IP address (recommended)
+
+#### 🤖 OpenRouter API Key
+
+1. Visit: https://openrouter.ai/keys
+2. Sign up (free tier available)
+3. Generate API key
+4. Note: Free tier has rate limits, paid tier recommended for production
+
+### Step 2: Configure Settings
+
+#### Method A: Using Environment Variables (.env file)
+
+```bash
+# Edit .env file
+nano .env
+
+# Critical Settings
+APP_ENV=local                          # Change to 'production' for live
+APP_DEBUG=true                         # Set false in production
+DB_CONNECTION=sqlite                   # or mysql/pgsql
+
+# Binance Configuration
+BINANCE_API_KEY=your_binance_api_key_here
+BINANCE_API_SECRET=your_binance_secret_here
+BINANCE_TESTNET=true                   # MUST be true for testing!
+
+# OpenRouter Configuration
+OPENROUTER_API_KEY=your_openrouter_key_here
+
+# Bot Settings (Defaults - can override in dashboard)
+BOT_ENABLED=false                      # Start disabled for safety
+TRADING_PAIRS=BTCUSDT,ETHUSDT,BNBUSDT
+TIMEFRAMES=5m,15m,30m,1h
+MAX_POSITIONS=5
+RISK_PER_TRADE=2                       # 2% per trade
+DAILY_LOSS_LIMIT=10                    # 10% max daily loss
+MIN_CONFIDENCE=70                      # AI confidence threshold
+ANALYSIS_INTERVAL=60                   # 60 seconds between analysis
+INITIAL_BALANCE=10000                  # Starting balance in USDT
+
+# AI Model
+AI_MODEL=anthropic/claude-3.5-sonnet
+AI_TEMPERATURE=0.3                     # Lower = more conservative
+
+# Queue & Cache
+QUEUE_CONNECTION=database              # or redis if available
+CACHE_STORE=database                   # or redis if available
+```
+
+#### Method B: Using Database Settings Table
+
+```bash
+# Access Tinker
 ./vendor/bin/sail artisan tinker
->>> App\Models\Setting::where('key', 'binance_api_key')->update(['value' => 'YOUR_KEY']);
->>> App\Models\Setting::where('key', 'binance_api_secret')->update(['value' => 'YOUR_SECRET']);
->>> App\Models\Setting::where('key', 'openrouter_api_key')->update(['value' => 'YOUR_KEY']);
+# or without Docker:
+php artisan tinker
+
+# Set API Keys
+>>> App\Models\Setting::updateOrCreate(['key' => 'binance_api_key'], ['value' => 'YOUR_BINANCE_KEY']);
+>>> App\Models\Setting::updateOrCreate(['key' => 'binance_api_secret'], ['value' => 'YOUR_BINANCE_SECRET']);
+>>> App\Models\Setting::updateOrCreate(['key' => 'openrouter_api_key'], ['value' => 'YOUR_OPENROUTER_KEY']);
+
+# Set Bot Configuration
+>>> App\Models\Setting::updateOrCreate(['key' => 'bot_enabled'], ['value' => 'false']);
+>>> App\Models\Setting::updateOrCreate(['key' => 'trading_pairs'], ['value' => 'BTCUSDT,ETHUSDT,BNBUSDT']);
+>>> App\Models\Setting::updateOrCreate(['key' => 'max_positions'], ['value' => '5']);
+>>> App\Models\Setting::updateOrCreate(['key' => 'risk_per_trade'], ['value' => '2']);
+>>> App\Models\Setting::updateOrCreate(['key' => 'min_confidence'], ['value' => '70']);
+
+# Verify settings
+>>> App\Models\Setting::all();
+
+# Exit
+>>> exit
+```
+
+### Step 3: Test API Connections
+
+```bash
+# Test Binance connection
+./vendor/bin/sail artisan tinker
+>>> $binance = app(App\Services\BinanceService::class);
+>>> $price = $binance->getCurrentPrice('BTCUSDT');
+>>> echo "BTC Price: $price\n";
 >>> exit
 
-# 8. Start queue worker (in new terminal)
+# Test OpenRouter AI
+./vendor/bin/sail artisan tinker
+>>> $ai = app(App\Services\OpenRouterAIService::class);
+>>> echo "AI Model: " . $ai->getModelName() . "\n";
+>>> exit
+
+# If both work, you're ready to proceed!
+```
+
+---
+
+## 🎯 Running the Bot
+
+### Step 1: Start Required Services
+
+```bash
+# In Terminal 1: Start Queue Worker (processes jobs)
+./vendor/bin/sail artisan queue:work --tries=3 --timeout=120
+
+# In Terminal 2: Start Scheduler (triggers periodic jobs)
+./vendor/bin/sail artisan schedule:work
+
+# Note: Keep both terminals running!
+```
+
+### Step 2: Access the Dashboard
+
+```bash
+# Start development server (if not using Docker)
+php artisan serve
+
+# Or access via Docker
+# Dashboard: http://localhost/dashboard
+```
+
+### Step 3: Enable the Bot
+
+**Via Dashboard (Recommended):**
+1. Open browser: `http://localhost/dashboard`
+2. Click "Bot Status" section
+3. Click "START BOT" button
+4. Monitor the dashboard for activity
+
+**Via Command Line:**
+```bash
+# Enable bot
+./vendor/bin/sail artisan tinker
+>>> App\Models\Setting::where('key', 'bot_enabled')->update(['value' => 'true']);
+>>> exit
+
+# Or use custom command (if implemented)
+./vendor/bin/sail artisan bot:start
+```
+
+### Step 4: Monitor Bot Activity
+
+```bash
+# Watch logs in real-time
+./vendor/bin/sail artisan tail
+
+# Or view log file directly
+tail -f storage/logs/laravel.log
+
+# Check queue jobs status
+./vendor/bin/sail artisan queue:monitor
+
+# View failed jobs
+./vendor/bin/sail artisan queue:failed
+```
+
+---
+
+## 📊 Understanding Bot Workflow
+
+### Automated Workflow (every 1-5 minutes)
+
+```
+1. FetchMarketDataJob
+   └─ Fetches OHLCV data from Binance
+   └─ Calculates technical indicators
+   └─ Stores in cache
+
+2. AnalyzeMarketJob
+   └─ Collects multi-timeframe data
+   └─ Sends to AI (Claude) for analysis
+   └─ Generates trading decision
+   └─ Stores AI decision in database
+
+3. ExecuteTradeJob (if decision meets criteria)
+   └─ Performs final safety checks
+   └─ Calculates position size
+   └─ Places order on Binance
+   └─ Records trade in database
+
+4. MonitorPositionsJob (every 1 min)
+   └─ Checks all open positions
+   └─ Monitors stop loss / take profit
+   └─ Automatically closes positions when triggered
+   └─ Updates P&L
+```
+
+### Manual Testing Mode
+
+```bash
+# Test market data fetch
+./vendor/bin/sail artisan tinker
+>>> dispatch(new App\Jobs\FetchMarketDataJob('BTCUSDT', '5m'));
+>>> exit
+
+# Test AI analysis
+>>> dispatch(new App\Jobs\AnalyzeMarketJob('BTCUSDT'));
+>>> exit
+
+# Check results in database
+>>> App\Models\AiDecision::latest()->first();
+>>> App\Models\Trade::latest()->first();
+```
+
+---
+
+## 🔍 Monitoring & Debugging
+
+### View Dashboard Metrics
+
+**Dashboard URL:** `http://localhost/dashboard`
+
+**Available Metrics:**
+- Bot status (running/stopped)
+- Open positions with real-time P&L
+- Recent trades history
+- Performance metrics (win rate, profit factor, Sharpe ratio)
+- AI decision history
+- Risk metrics
+
+### Check Logs
+
+```bash
+# Real-time log monitoring
+./vendor/bin/sail artisan tail
+
+# Filter specific logs
+tail -f storage/logs/laravel.log | grep "Trading"
+tail -f storage/logs/laravel.log | grep "ERROR"
+
+# View last 100 lines
+tail -n 100 storage/logs/laravel.log
+
+# Clear old logs
+./vendor/bin/sail artisan log:clear
+```
+
+### Debug Common Issues
+
+```bash
+# Check queue jobs
+./vendor/bin/sail artisan queue:monitor
+
+# Restart queue worker if stuck
+# Ctrl+C in queue:work terminal, then restart
+./vendor/bin/sail artisan queue:restart
 ./vendor/bin/sail artisan queue:work
 
-# 9. Start the bot
-./vendor/bin/sail artisan bot:start
+# Check failed jobs
+./vendor/bin/sail artisan queue:failed
 
-# 10. Access dashboard
-# Open browser: http://localhost/dashboard
+# Retry failed jobs
+./vendor/bin/sail artisan queue:retry all
+
+# Check database
+./vendor/bin/sail artisan tinker
+>>> App\Models\Trade::count();
+>>> App\Models\AiDecision::count();
+>>> App\Models\Setting::all();
+
+# Clear cache if needed
+./vendor/bin/sail artisan cache:clear
+./vendor/bin/sail artisan config:clear
 ```
+
+---
+
+## 🛑 Stopping the Bot
+
+### Emergency Stop
+
+```bash
+# Method 1: Via Dashboard
+# Click "STOP BOT" button on dashboard
+
+# Method 2: Via Command Line
+./vendor/bin/sail artisan tinker
+>>> App\Models\Setting::where('key', 'bot_enabled')->update(['value' => 'false']);
+>>> exit
+
+# Method 3: Kill Queue Workers
+# Press Ctrl+C in all terminal windows running queue:work
+
+# Method 4: Stop all services
+./vendor/bin/sail down
+```
+
+### Graceful Shutdown
+
+```bash
+# 1. Disable bot (prevents new trades)
+./vendor/bin/sail artisan tinker
+>>> App\Models\Setting::where('key', 'bot_enabled')->update(['value' => 'false']);
+>>> exit
+
+# 2. Wait for open positions to close naturally
+# Or manually close via dashboard/Binance
+
+# 3. Stop queue workers
+# Ctrl+C in queue:work terminals
+
+# 4. Stop scheduler
+# Ctrl+C in schedule:work terminal
+```
+
+---
+
+## 📈 Best Practices
+
+### 🟢 DO's
+
+✅ **ALWAYS start with Binance Testnet** (`BINANCE_TESTNET=true`)
+✅ **Test for at least 1 week** before going live
+✅ **Start with small capital** (max $100-500 for first month)
+✅ **Monitor daily** for the first 2 weeks
+✅ **Set conservative risk limits** (2% per trade max)
+✅ **Enable daily loss limits** (10% recommended)
+✅ **Use API keys WITHOUT withdrawal permissions**
+✅ **Keep API keys in .env file** (never commit to git)
+✅ **Review AI decisions** in dashboard before increasing confidence threshold
+✅ **Backup your database** regularly
+✅ **Monitor logs** for errors
+✅ **Keep queue workers running** (use Supervisor in production)
+
+### 🔴 DON'Ts
+
+❌ **DON'T skip testnet testing**
+❌ **DON'T use high leverage** (stick to 1-3x max)
+❌ **DON'T invest money you can't afford to lose**
+❌ **DON'T leave bot unmonitored** for long periods
+❌ **DON'T disable safety checks** (daily loss limit, position limits)
+❌ **DON'T share your API keys**
+❌ **DON'T commit .env file to Git**
+❌ **DON'T run multiple bots** with same API keys simultaneously
+❌ **DON'T expect 100% win rate** (60-70% is excellent)
+❌ **DON'T panic sell** during drawdowns
+
+### 🎯 Optimization Tips
+
+1. **Strategy Selection:**
+   - Trend Following → Best in strong trends
+   - Mean Reversion → Best in ranging markets
+   - Scalping → Requires stable connection, high liquidity
+   - Breakout → Best during consolidation periods
+   - Market Making → Advanced, requires monitoring
+
+2. **Risk Management:**
+   - Start with 1% risk per trade
+   - Gradually increase to 2% after successful testing
+   - Never exceed 3% risk per trade
+   - Keep max positions at 3-5
+
+3. **AI Confidence:**
+   - Start with MIN_CONFIDENCE=80 (very conservative)
+   - Lower to 70 after reviewing AI reasoning
+   - Monitor false signals and adjust
+
+4. **Timeframes:**
+   - Use at least 3 timeframes for confirmation
+   - Higher timeframes (1h, 4h) = more reliable but fewer signals
+   - Lower timeframes (5m, 15m) = more signals but more noise
+
+---
+
+## 🆘 Troubleshooting
+
+### Problem: Bot Not Executing Trades
+
+**Check:**
+```bash
+# 1. Is bot enabled?
+./vendor/bin/sail artisan tinker
+>>> App\Models\Setting::where('key', 'bot_enabled')->value('value');
+
+# 2. Are API keys valid?
+>>> $binance = app(App\Services\BinanceService::class);
+>>> $binance->getBalance();
+
+# 3. Check AI decisions
+>>> App\Models\AiDecision::latest()->first();
+
+# 4. Check confidence threshold
+>>> App\Models\Setting::where('key', 'min_confidence')->value('value');
+
+# 5. Check position limits
+>>> App\Models\Trade::where('status', 'OPEN')->count();
+>>> App\Models\Setting::where('key', 'max_positions')->value('value');
+```
+
+### Problem: Queue Jobs Not Processing
+
+**Solution:**
+```bash
+# Restart queue worker
+./vendor/bin/sail artisan queue:restart
+./vendor/bin/sail artisan queue:work
+
+# Check failed jobs
+./vendor/bin/sail artisan queue:failed
+
+# Clear stuck jobs
+./vendor/bin/sail artisan queue:flush
+```
+
+### Problem: "Insufficient Balance" Error
+
+**Solution:**
+```bash
+# Check Binance balance
+./vendor/bin/sail artisan tinker
+>>> $binance = app(App\Services\BinanceService::class);
+>>> $binance->getBalance();
+
+# For testnet: Get test funds from faucet
+# Visit: https://testnet.binancefuture.com/en/futures/BTCUSDT
+# Use faucet to get test USDT
+```
+
+### Problem: API Rate Limit Exceeded
+
+**Solution:**
+```bash
+# Increase analysis interval
+# Edit .env: ANALYSIS_INTERVAL=300 (5 minutes)
+
+# Or update in database:
+./vendor/bin/sail artisan tinker
+>>> App\Models\Setting::updateOrCreate(['key' => 'analysis_interval'], ['value' => '300']);
+```
+
+### Problem: High Slippage on Orders
+
+**Solution:**
+- Use LIMIT orders instead of MARKET orders
+- Trade more liquid pairs (BTC, ETH)
+- Reduce position size
+- Avoid trading during high volatility
+
+---
+
+## 📞 Getting Help
+
+### Before Asking for Help:
+
+1. ✅ Check logs: `tail -f storage/logs/laravel.log`
+2. ✅ Review this README
+3. ✅ Check GitHub issues
+4. ✅ Test with testnet first
+
+### Support Channels:
+
+- 📋 **GitHub Issues:** For bugs and feature requests
+- 📖 **Documentation:** Check code comments
+- 💬 **Community:** (Coming soon)
+
+---
+
+## ⚡ Production Deployment
+
+### Using Supervisor (Recommended)
+
+```bash
+# 1. Install Supervisor
+sudo apt install supervisor
+
+# 2. Create config file
+sudo nano /etc/supervisor/conf.d/trading-bot.conf
+
+# 3. Add configuration:
+[program:trading-bot-queue]
+process_name=%(program_name)s_%(process_num)02d
+command=php /path/to/ai-trading-bot/artisan queue:work --sleep=3 --tries=3 --max-time=3600
+autostart=true
+autorestart=true
+stopasgroup=true
+killasgroup=true
+user=www-data
+numprocs=1
+redirect_stderr=true
+stdout_logfile=/path/to/ai-trading-bot/storage/logs/worker.log
+stopwaitsecs=3600
+
+[program:trading-bot-scheduler]
+process_name=%(program_name)s
+command=php /path/to/ai-trading-bot/artisan schedule:work
+autostart=true
+autorestart=true
+user=www-data
+redirect_stderr=true
+stdout_logfile=/path/to/ai-trading-bot/storage/logs/scheduler.log
+
+# 4. Start Supervisor
+sudo supervisorctl reread
+sudo supervisorctl update
+sudo supervisorctl start all
+
+# 5. Check status
+sudo supervisorctl status
+```
+
+### Environment Configuration
+
+```bash
+# Production .env settings
+APP_ENV=production
+APP_DEBUG=false
+BINANCE_TESTNET=false  # Only after thorough testing!
+QUEUE_CONNECTION=redis  # Use Redis in production
+CACHE_STORE=redis
+LOG_LEVEL=warning
+```
+
+---
 
 ---
 
