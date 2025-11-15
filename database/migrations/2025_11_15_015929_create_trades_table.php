@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::create('trades', function (Blueprint $table) {
             $table->id();
             $table->string('symbol'); // e.g., 'BTCUSDT'
-            $table->enum('side', ['LONG', 'SHORT']);
+            $table->enum('side', ['BUY', 'SELL', 'LONG', 'SHORT']);
             $table->decimal('entry_price', 20, 8);
             $table->decimal('exit_price', 20, 8)->nullable();
             $table->decimal('quantity', 20, 8);
