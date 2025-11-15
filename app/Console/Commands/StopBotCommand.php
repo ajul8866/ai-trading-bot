@@ -41,8 +41,9 @@ class StopBotCommand extends Command
             $this->line('   • You should close positions manually or wait for SL/TP');
             $this->newLine();
 
-            if (!$this->confirm('Do you want to continue stopping the bot?', true)) {
+            if (! $this->confirm('Do you want to continue stopping the bot?', true)) {
                 $this->info('❌ Bot stop cancelled.');
+
                 return Command::FAILURE;
             }
         }
@@ -58,8 +59,8 @@ class StopBotCommand extends Command
         $this->newLine();
 
         $this->info('📊 Status:');
-        $this->line("  • Bot is now DISABLED");
-        $this->line("  • No new trades will be opened");
+        $this->line('  • Bot is now DISABLED');
+        $this->line('  • No new trades will be opened');
         $this->line("  • Open positions: {$openPositions}");
 
         if ($openPositions > 0) {

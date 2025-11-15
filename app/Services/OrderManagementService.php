@@ -2,8 +2,8 @@
 
 namespace App\Services;
 
-use App\Models\Trade;
 use App\Models\Setting;
+use App\Models\Trade;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -36,16 +36,21 @@ use Illuminate\Support\Facades\Log;
 class OrderManagementService
 {
     private BinanceService $exchange;
+
     private RiskManagementService $riskManagement;
 
     // Order execution parameters
     private float $defaultSlippagePercent = 0.001; // 0.1% default slippage
+
     private float $maxSlippagePercent = 0.005; // 0.5% max acceptable slippage
+
     private int $maxRetries = 3;
+
     private int $retryDelayMs = 500;
 
     // Execution algorithm parameters
     private int $twapIntervalSeconds = 60; // TWAP slice interval
+
     private int $icebergMaxSlices = 10; // Max iceberg order slices
 
     public function __construct(BinanceService $exchange, RiskManagementService $riskManagement)
@@ -61,7 +66,7 @@ class OrderManagementService
     {
         // Validate order parameters
         $validation = $this->validateOrder($orderParams);
-        if (!$validation['valid']) {
+        if (! $validation['valid']) {
             return [
                 'success' => false,
                 'error' => $validation['error'],
@@ -71,7 +76,7 @@ class OrderManagementService
 
         // Pre-trade risk checks
         $riskCheck = $this->performPreTradeRiskChecks($orderParams);
-        if (!$riskCheck['passed']) {
+        if (! $riskCheck['passed']) {
             return [
                 'success' => false,
                 'error' => $riskCheck['reason'],
@@ -150,7 +155,7 @@ class OrderManagementService
         if ($expectedSlippage > $this->maxSlippagePercent) {
             return [
                 'success' => false,
-                'error' => "Expected slippage too high: " . round($expectedSlippage * 100, 2) . "%",
+                'error' => 'Expected slippage too high: '.round($expectedSlippage * 100, 2).'%',
                 'order_id' => null,
             ];
         }
@@ -232,7 +237,7 @@ class OrderManagementService
 
             return [
                 'success' => true,
-                'order_id' => 'LIMIT_' . uniqid(),
+                'order_id' => 'LIMIT_'.uniqid(),
                 'trade_id' => $trade->id,
                 'fill_price' => $limitPrice,
                 'filled' => true,
@@ -241,7 +246,7 @@ class OrderManagementService
             // Order pending
             return [
                 'success' => true,
-                'order_id' => 'LIMIT_' . uniqid(),
+                'order_id' => 'LIMIT_'.uniqid(),
                 'status' => 'PENDING',
                 'filled' => false,
                 'message' => 'Limit order placed, waiting for fill',
@@ -264,7 +269,7 @@ class OrderManagementService
 
         return [
             'success' => true,
-            'order_id' => 'STOP_' . uniqid(),
+            'order_id' => 'STOP_'.uniqid(),
             'status' => 'PENDING',
             'stop_price' => $stopPrice,
             'message' => 'Stop order placed, will trigger at stop price',
@@ -281,7 +286,7 @@ class OrderManagementService
 
         return [
             'success' => true,
-            'order_id' => 'STOP_LIMIT_' . uniqid(),
+            'order_id' => 'STOP_LIMIT_'.uniqid(),
             'status' => 'PENDING',
             'stop_price' => $stopPrice,
             'limit_price' => $limitPrice,
@@ -308,7 +313,7 @@ class OrderManagementService
 
         return [
             'success' => true,
-            'order_id' => 'TRAILING_' . uniqid(),
+            'order_id' => 'TRAILING_'.uniqid(),
             'status' => 'ACTIVE',
             'trail_percent' => $trailPercent,
             'current_stop' => $initialStop,
@@ -340,7 +345,7 @@ class OrderManagementService
         // For now, return the execution plan
         return [
             'success' => true,
-            'order_id' => 'TWAP_' . uniqid(),
+            'order_id' => 'TWAP_'.uniqid(),
             'algorithm' => 'TWAP',
             'slices' => $slices,
             'quantity_per_slice' => round($quantityPerSlice, 8),
@@ -361,7 +366,7 @@ class OrderManagementService
 
         return [
             'success' => true,
-            'order_id' => 'ICEBERG_' . uniqid(),
+            'order_id' => 'ICEBERG_'.uniqid(),
             'algorithm' => 'ICEBERG',
             'total_quantity' => $totalQuantity,
             'visible_quantity' => $visibleQuantity,
@@ -426,7 +431,7 @@ class OrderManagementService
         $required = ['symbol', 'side', 'quantity'];
 
         foreach ($required as $field) {
-            if (!isset($params[$field])) {
+            if (! isset($params[$field])) {
                 return [
                     'valid' => false,
                     'error' => "Missing required field: {$field}",
@@ -435,7 +440,7 @@ class OrderManagementService
         }
 
         // Validate side
-        if (!in_array($params['side'], ['BUY', 'SELL'])) {
+        if (! in_array($params['side'], ['BUY', 'SELL'])) {
             return [
                 'valid' => false,
                 'error' => "Invalid side: {$params['side']}. Must be BUY or SELL",
@@ -446,21 +451,21 @@ class OrderManagementService
         if ($params['quantity'] <= 0) {
             return [
                 'valid' => false,
-                'error' => "Quantity must be positive",
+                'error' => 'Quantity must be positive',
             ];
         }
 
         // Validate type-specific params
         $type = $params['type'] ?? 'MARKET';
 
-        if (in_array($type, ['LIMIT', 'STOP_LIMIT']) && !isset($params['limit_price'])) {
+        if (in_array($type, ['LIMIT', 'STOP_LIMIT']) && ! isset($params['limit_price'])) {
             return [
                 'valid' => false,
                 'error' => "Limit price required for {$type} orders",
             ];
         }
 
-        if (in_array($type, ['STOP_MARKET', 'STOP_LIMIT']) && !isset($params['stop_price'])) {
+        if (in_array($type, ['STOP_MARKET', 'STOP_LIMIT']) && ! isset($params['stop_price'])) {
             return [
                 'valid' => false,
                 'error' => "Stop price required for {$type} orders",
@@ -697,7 +702,7 @@ class OrderManagementService
 
         return [
             'total_fills' => $trades->count(),
-            'avg_slippage' => round($avgSlippage * 100, 3) . '%',
+            'avg_slippage' => round($avgSlippage * 100, 3).'%',
             'fill_rate' => '100%', // Simulated
             'avg_fill_time' => '50ms', // Simulated
         ];

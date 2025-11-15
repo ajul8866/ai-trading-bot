@@ -15,7 +15,7 @@ class OpenPositions extends Component
             ->get();
 
         return view('livewire.open-positions', [
-            'positions' => $positions
+            'positions' => $positions,
         ]);
     }
 }

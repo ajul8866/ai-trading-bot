@@ -77,6 +77,7 @@ class TechnicalIndicatorService
     {
         if (count($prices) < $period) {
             $currentPrice = $prices[count($prices) - 1] ?? 0;
+
             return [
                 'upper' => $currentPrice * 1.02,
                 'middle' => $currentPrice,

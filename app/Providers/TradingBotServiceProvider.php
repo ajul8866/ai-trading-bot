@@ -23,11 +23,11 @@ class TradingBotServiceProvider extends ServiceProvider
 
         // Register services as singletons for better performance
         $this->app->singleton(BinanceService::class, function ($app) {
-            return new BinanceService();
+            return new BinanceService;
         });
 
         $this->app->singleton(OpenRouterAIService::class, function ($app) {
-            return new OpenRouterAIService();
+            return new OpenRouterAIService;
         });
     }
 

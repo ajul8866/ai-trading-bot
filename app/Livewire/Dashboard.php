@@ -4,7 +4,6 @@ namespace App\Livewire;
 
 use App\Models\AiDecision;
 use App\Models\Setting;
-use App\Models\Trade;
 use Livewire\Component;
 
 class Dashboard extends Component
@@ -21,12 +20,12 @@ class Dashboard extends Component
             'max_positions',
             'risk_per_trade',
             'daily_loss_limit',
-            'min_confidence'
+            'min_confidence',
         ])->get()->keyBy('key');
 
         return view('livewire.dashboard', [
             'recentDecisions' => $recentDecisions,
-            'settings' => $settings
+            'settings' => $settings,
         ]);
     }
 }

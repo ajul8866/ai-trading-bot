@@ -20,7 +20,7 @@ return Application::configure(basePath: dirname(__DIR__))
     })
     ->withSchedule(function (Schedule $schedule): void {
         // Monitor positions every minute
-        $schedule->job(new MonitorPositionsJob())
+        $schedule->job(new MonitorPositionsJob)
             ->everyMinute()
             ->name('monitor-positions')
             ->withoutOverlapping();

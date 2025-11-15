@@ -11,6 +11,7 @@ class RiskManagementService
     public function __construct(
         private BinanceService $binanceService
     ) {}
+
     /**
      * Check if we can open a new position
      */
@@ -80,12 +81,12 @@ class RiskManagementService
         $errors = [];
 
         // Check if stop loss is set
-        if (!$stopLoss) {
+        if (! $stopLoss) {
             $errors[] = 'Stop loss must be set';
         }
 
         // Check if take profit is set
-        if (!$takeProfit) {
+        if (! $takeProfit) {
             $errors[] = 'Take profit must be set';
         }
 
@@ -131,9 +132,9 @@ class RiskManagementService
         return [
             'risk_level' => $riskLevel,
             'confidence' => $confidence,
-            'can_trade' => !$this->isDailyLossLimitReached() && $this->canOpenPosition(),
+            'can_trade' => ! $this->isDailyLossLimitReached() && $this->canOpenPosition(),
             'daily_loss_limit_reached' => $this->isDailyLossLimitReached(),
-            'max_positions_reached' => !$this->canOpenPosition(),
+            'max_positions_reached' => ! $this->canOpenPosition(),
         ];
     }
 }

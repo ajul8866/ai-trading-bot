@@ -18,30 +18,31 @@ class MonitorPositionsJob implements ShouldQueue
     public function handle(BinanceService $binanceService): void
     {
         try {
-            Log::info("Monitoring open positions");
+            Log::info('Monitoring open positions');
 
             // Get all open trades
             $openTrades = Trade::where('status', 'OPEN')->get();
 
             if ($openTrades->isEmpty()) {
-                Log::info("No open positions to monitor");
+                Log::info('No open positions to monitor');
+
                 return;
             }
 
-            Log::info("Found open positions", ['count' => $openTrades->count()]);
+            Log::info('Found open positions', ['count' => $openTrades->count()]);
 
             foreach ($openTrades as $trade) {
                 try {
                     $this->monitorTrade($trade, $binanceService);
                 } catch (\Exception $e) {
-                    Log::error("Error monitoring trade", [
+                    Log::error('Error monitoring trade', [
                         'trade_id' => $trade->id,
                         'error' => $e->getMessage(),
                     ]);
                 }
             }
         } catch (\Exception $e) {
-            Log::error("Error in position monitoring", [
+            Log::error('Error in position monitoring', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
             ]);
@@ -55,11 +56,12 @@ class MonitorPositionsJob implements ShouldQueue
         $currentPrice = $binanceService->getCurrentPrice($trade->symbol);
 
         if ($currentPrice <= 0) {
-            Log::warning("Invalid current price", ['symbol' => $trade->symbol]);
+            Log::warning('Invalid current price', ['symbol' => $trade->symbol]);
+
             return;
         }
 
-        Log::info("Monitoring trade", [
+        Log::info('Monitoring trade', [
             'trade_id' => $trade->id,
             'symbol' => $trade->symbol,
             'side' => $trade->side,
@@ -94,7 +96,7 @@ class MonitorPositionsJob implements ShouldQueue
         }
 
         if ($shouldClose) {
-            Log::info("Closing position", [
+            Log::info('Closing position', [
                 'trade_id' => $trade->id,
                 'reason' => $closeReason,
                 'current_price' => $currentPrice,
@@ -119,10 +121,11 @@ class MonitorPositionsJob implements ShouldQueue
             );
 
             if (isset($closeResult['error'])) {
-                Log::error("Failed to close position on Binance", [
+                Log::error('Failed to close position on Binance', [
                     'trade_id' => $trade->id,
                     'error' => $closeResult['error'],
                 ]);
+
                 return;
             }
 
@@ -143,7 +146,7 @@ class MonitorPositionsJob implements ShouldQueue
                 'closed_at' => now(),
             ]);
 
-            Log::info("Position closed successfully", [
+            Log::info('Position closed successfully', [
                 'trade_id' => $trade->id,
                 'reason' => $reason,
                 'entry_price' => $trade->entry_price,
@@ -152,7 +155,7 @@ class MonitorPositionsJob implements ShouldQueue
                 'pnl_percentage' => $pnlPercentage,
             ]);
         } catch (\Exception $e) {
-            Log::error("Error closing trade", [
+            Log::error('Error closing trade', [
                 'trade_id' => $trade->id,
                 'error' => $e->getMessage(),
             ]);
