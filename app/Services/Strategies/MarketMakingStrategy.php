@@ -58,28 +58,42 @@ class MarketMakingStrategy implements TradingStrategyInterface
 
     // Core parameters
     private float $baseSpreadPercent = 0.0015; // 0.15% base spread
+
     private float $minSpreadPercent = 0.001; // 0.1% minimum spread
+
     private float $maxSpreadPercent = 0.005; // 0.5% maximum spread
+
     private float $targetInventoryRatio = 0; // Target neutral inventory
+
     private float $maxInventoryRatio = 0.3; // Max 30% of capital in inventory
+
     private float $inventorySkewMultiplier = 0.0005; // 0.05% skew per 10% inventory
+
     private float $volatilityMultiplier = 2.0; // Spread multiplier in high volatility
 
     // Market conditions
     private int $volatilityPeriod = 20;
+
     private int $trendPeriod = 50;
+
     private float $trendThreshold = 0.002; // 0.2% slope for trend
+
     private int $volumePeriod = 20;
+
     private float $minVolumeRatio = 0.8; // Minimum 80% of average volume
 
     // Position management
     private float $orderSizePercent = 0.02; // 2% of capital per order
+
     private int $maxOrdersPerSide = 3; // Maximum simultaneous orders per side
+
     private float $orderSpacing = 0.0005; // 0.05% spacing between orders
 
     // Risk limits
     private float $maxDrawdownPercent = 0.05; // 5% max drawdown before pause
+
     private float $circuitBreakerVolatility = 0.10; // 10% volatility triggers pause
+
     private int $minTimeBetweenTrades = 1; // Minimum 1 second between fills
 
     public function __construct(TechnicalIndicatorService $indicatorService)
@@ -117,7 +131,7 @@ class MarketMakingStrategy implements TradingStrategyInterface
         // Check if market making is viable
         $viability = $this->assessMarketMakingViability($marketConditions);
 
-        if (!$viability['is_viable']) {
+        if (! $viability['is_viable']) {
             return $this->createHoldSignal($marketData, $viability['reason']);
         }
 
@@ -151,7 +165,7 @@ class MarketMakingStrategy implements TradingStrategyInterface
             $reasons = $quotingDecision['reasons'];
         } else {
             $reasons[] = $quotingDecision['reason'];
-            $reasons[] = "Market conditions not suitable for market making";
+            $reasons[] = 'Market conditions not suitable for market making';
         }
 
         // Calculate entry, stop loss, and take profit
@@ -286,7 +300,7 @@ class MarketMakingStrategy implements TradingStrategyInterface
         }
 
         $mean = array_sum($returns) / count($returns);
-        $squaredDiffs = array_map(function($r) use ($mean) {
+        $squaredDiffs = array_map(function ($r) use ($mean) {
             return pow($r - $mean, 2);
         }, $returns);
 
@@ -410,6 +424,7 @@ class MarketMakingStrategy implements TradingStrategyInterface
         $maxScore += 30;
         if ($marketConditions['volatility_regime'] === 'EXTREME') {
             $reasons[] = "Volatility too high ({$marketConditions['volatility']}) - circuit breaker";
+
             return [
                 'is_viable' => false,
                 'reason' => implode(', ', $reasons),
@@ -426,6 +441,7 @@ class MarketMakingStrategy implements TradingStrategyInterface
         $maxScore += 40;
         if ($marketConditions['liquidity'] === 'LOW') {
             $reasons[] = 'Insufficient liquidity for market making';
+
             return [
                 'is_viable' => false,
                 'reason' => implode(', ', $reasons),
@@ -544,7 +560,7 @@ class MarketMakingStrategy implements TradingStrategyInterface
         $favorSide = 'NEUTRAL';
 
         // Check if market is viable
-        if (!$viability['is_viable']) {
+        if (! $viability['is_viable']) {
             return [
                 'should_quote' => false,
                 'reason' => $viability['reason'],
@@ -672,7 +688,7 @@ class MarketMakingStrategy implements TradingStrategyInterface
     public function canTrade(MarketAnalysisDTO $marketData): bool
     {
         // Need short timeframes for market making
-        if (!isset($marketData->ohlcvData['1m']) || empty($marketData->ohlcvData['1m'])) {
+        if (! isset($marketData->ohlcvData['1m']) || empty($marketData->ohlcvData['1m'])) {
             return false;
         }
 

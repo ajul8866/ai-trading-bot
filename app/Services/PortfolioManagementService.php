@@ -2,9 +2,8 @@
 
 namespace App\Services;
 
-use App\Models\Trade;
 use App\Models\Setting;
-use Illuminate\Support\Facades\DB;
+use App\Models\Trade;
 
 /**
  * Portfolio Management Service
@@ -35,14 +34,20 @@ class PortfolioManagementService
 
     // Portfolio limits
     private int $maxConcurrentPositions = 5;
+
     private float $maxPortfolioRisk = 0.10; // 10% max total portfolio risk
+
     private float $maxSinglePairExposure = 0.30; // 30% max per pair
+
     private float $maxCorrelatedExposure = 0.50; // 50% max in correlated pairs
+
     private float $correlationThreshold = 0.7; // Pairs with >0.7 correlation considered correlated
 
     // Risk metrics thresholds
     private float $maxDrawdown = 0.20; // 20% max drawdown before action
+
     private float $targetSharpeRatio = 1.5; // Target Sharpe ratio
+
     private float $maxVaR95 = 0.05; // 5% Value at Risk (95% confidence)
 
     public function __construct(RiskManagementService $riskManagement)
@@ -72,7 +77,7 @@ class PortfolioManagementService
             $totalExposure += $exposure;
 
             // Group by pair
-            if (!isset($positionsByPair[$position->symbol])) {
+            if (! isset($positionsByPair[$position->symbol])) {
                 $positionsByPair[$position->symbol] = [
                     'count' => 0,
                     'exposure' => 0,
@@ -125,7 +130,7 @@ class PortfolioManagementService
             $positionRisk = $this->calculatePositionRisk($position);
             $totalRisk += $positionRisk;
 
-            if (!isset($riskByPair[$position->symbol])) {
+            if (! isset($riskByPair[$position->symbol])) {
                 $riskByPair[$position->symbol] = 0;
             }
             $riskByPair[$position->symbol] += $positionRisk;
@@ -185,7 +190,7 @@ class PortfolioManagementService
 
         if ($pairExposureRatio > $this->maxSinglePairExposure) {
             $canOpen = false;
-            $reasons[] = "Pair exposure limit exceeded for {$symbol} (" . round($pairExposureRatio * 100, 2) . "% > " . ($this->maxSinglePairExposure * 100) . "%)";
+            $reasons[] = "Pair exposure limit exceeded for {$symbol} (".round($pairExposureRatio * 100, 2).'% > '.($this->maxSinglePairExposure * 100).'%)';
         }
 
         // Check portfolio risk
@@ -196,7 +201,7 @@ class PortfolioManagementService
 
         if ($riskRatio > $this->maxPortfolioRisk) {
             $canOpen = false;
-            $reasons[] = "Portfolio risk limit exceeded (" . round($riskRatio * 100, 2) . "% > " . ($this->maxPortfolioRisk * 100) . "%)";
+            $reasons[] = 'Portfolio risk limit exceeded ('.round($riskRatio * 100, 2).'% > '.($this->maxPortfolioRisk * 100).'%)';
         }
 
         // Check correlation exposure
@@ -207,14 +212,14 @@ class PortfolioManagementService
 
         if ($correlatedRatio > $this->maxCorrelatedExposure) {
             $canOpen = false;
-            $reasons[] = "Correlated exposure limit exceeded (" . round($correlatedRatio * 100, 2) . "% > " . ($this->maxCorrelatedExposure * 100) . "%)";
+            $reasons[] = 'Correlated exposure limit exceeded ('.round($correlatedRatio * 100, 2).'% > '.($this->maxCorrelatedExposure * 100).'%)';
         }
 
         // Check drawdown
         $currentDrawdown = $this->getCurrentDrawdown();
         if ($currentDrawdown > $this->maxDrawdown) {
             $canOpen = false;
-            $reasons[] = "Maximum drawdown exceeded (" . round($currentDrawdown * 100, 2) . "% > " . ($this->maxDrawdown * 100) . "%)";
+            $reasons[] = 'Maximum drawdown exceeded ('.round($currentDrawdown * 100, 2).'% > '.($this->maxDrawdown * 100).'%)';
         }
 
         // Check daily loss limit
@@ -222,11 +227,11 @@ class PortfolioManagementService
         $dailyLossLimit = Setting::getValue('daily_loss_limit', 0.1) * $accountBalance;
         if ($dailyPnL < -$dailyLossLimit) {
             $canOpen = false;
-            $reasons[] = "Daily loss limit reached";
+            $reasons[] = 'Daily loss limit reached';
         }
 
         if ($canOpen) {
-            $reasons[] = "All checks passed";
+            $reasons[] = 'All checks passed';
         }
 
         return [
@@ -298,7 +303,7 @@ class PortfolioManagementService
                     'type' => 'REDUCE_EXPOSURE',
                     'priority' => 'HIGH',
                     'symbol' => $symbol,
-                    'message' => "Reduce exposure in {$symbol} (currently " . round($exposureRatio * 100, 2) . "%)",
+                    'message' => "Reduce exposure in {$symbol} (currently ".round($exposureRatio * 100, 2).'%)',
                     'target_exposure' => $this->maxSinglePairExposure * $snapshot['account_balance'],
                 ];
             }
@@ -309,8 +314,8 @@ class PortfolioManagementService
             $suggestions[] = [
                 'type' => 'IMPROVE_DIVERSIFICATION',
                 'priority' => 'MEDIUM',
-                'message' => "Portfolio is under-diversified (score: " . round($riskMetrics['diversification_score'], 2) . ")",
-                'recommendation' => "Consider spreading risk across more uncorrelated pairs",
+                'message' => 'Portfolio is under-diversified (score: '.round($riskMetrics['diversification_score'], 2).')',
+                'recommendation' => 'Consider spreading risk across more uncorrelated pairs',
             ];
         }
 
@@ -319,8 +324,8 @@ class PortfolioManagementService
             $suggestions[] = [
                 'type' => 'REDUCE_RISK',
                 'priority' => 'HIGH',
-                'message' => "Portfolio risk approaching limit (" . round($riskMetrics['portfolio_risk_ratio'] * 100, 2) . "%)",
-                'recommendation' => "Reduce position sizes or close losing positions",
+                'message' => 'Portfolio risk approaching limit ('.round($riskMetrics['portfolio_risk_ratio'] * 100, 2).'%)',
+                'recommendation' => 'Reduce position sizes or close losing positions',
             ];
         }
 
@@ -329,8 +334,8 @@ class PortfolioManagementService
             $suggestions[] = [
                 'type' => 'DRAWDOWN_WARNING',
                 'priority' => 'HIGH',
-                'message' => "Approaching maximum drawdown (" . round($riskMetrics['current_drawdown'] * 100, 2) . "%)",
-                'recommendation' => "Consider pausing trading or reducing position sizes",
+                'message' => 'Approaching maximum drawdown ('.round($riskMetrics['current_drawdown'] * 100, 2).'%)',
+                'recommendation' => 'Consider pausing trading or reducing position sizes',
             ];
         }
 
@@ -339,8 +344,8 @@ class PortfolioManagementService
             $suggestions[] = [
                 'type' => 'LOW_RISK_ADJUSTED_RETURNS',
                 'priority' => 'MEDIUM',
-                'message' => "Sharpe ratio below target (" . round($riskMetrics['sharpe_ratio'], 2) . " < 1.0)",
-                'recommendation' => "Review and optimize trading strategies",
+                'message' => 'Sharpe ratio below target ('.round($riskMetrics['sharpe_ratio'], 2).' < 1.0)',
+                'recommendation' => 'Review and optimize trading strategies',
             ];
         }
 
@@ -352,9 +357,9 @@ class PortfolioManagementService
                     $suggestions[] = [
                         'type' => 'CORRELATED_EXPOSURE',
                         'priority' => 'MEDIUM',
-                        'message' => "High correlation between " . implode(', ', $group['symbols']),
+                        'message' => 'High correlation between '.implode(', ', $group['symbols']),
                         'correlation' => round($group['correlation'], 2),
-                        'recommendation' => "Consider closing some correlated positions",
+                        'recommendation' => 'Consider closing some correlated positions',
                     ];
                 }
             }
@@ -379,8 +384,8 @@ class PortfolioManagementService
                 $suggestions[] = [
                     'type' => 'DIRECTIONAL_BIAS',
                     'priority' => 'LOW',
-                    'message' => "Portfolio has directional bias (" . round($longRatio * 100, 2) . "% long)",
-                    'recommendation' => "Consider adding positions in opposite direction for balance",
+                    'message' => 'Portfolio has directional bias ('.round($longRatio * 100, 2).'% long)',
+                    'recommendation' => 'Consider adding positions in opposite direction for balance',
                 ];
             }
         }
@@ -571,7 +576,7 @@ class PortfolioManagementService
         $avgReturn = array_sum($returns) / count($returns);
 
         // Calculate standard deviation
-        $squaredDiffs = array_map(function($r) use ($avgReturn) {
+        $squaredDiffs = array_map(function ($r) use ($avgReturn) {
             return pow($r - $avgReturn, 2);
         }, $returns);
 
@@ -598,7 +603,7 @@ class PortfolioManagementService
         $avgReturn = array_sum($returns) / count($returns);
 
         // Calculate downside deviation (only negative returns)
-        $negativeReturns = array_filter($returns, function($r) {
+        $negativeReturns = array_filter($returns, function ($r) {
             return $r < 0;
         });
 
@@ -606,7 +611,7 @@ class PortfolioManagementService
             return $avgReturn > 0 ? 999 : 0; // Very high if positive returns, no downside
         }
 
-        $squaredDownsideDiffs = array_map(function($r) {
+        $squaredDownsideDiffs = array_map(function ($r) {
             return pow($r, 2);
         }, $negativeReturns);
 
@@ -764,6 +769,7 @@ class PortfolioManagementService
     private function getActivePairs(): array
     {
         $pairs = Setting::getValue('trading_pairs', 'BTCUSDT,ETHUSDT,BNBUSDT');
+
         return explode(',', $pairs);
     }
 
@@ -777,6 +783,7 @@ class PortfolioManagementService
     private function calculatePositionRisk($position): float
     {
         $riskAmount = abs($position->entry_price - ($position->stop_loss ?? $position->entry_price * 0.98)) * $position->quantity;
+
         return $riskAmount;
     }
 
@@ -817,7 +824,7 @@ class PortfolioManagementService
         $correlationMatrix = $this->calculateCorrelationMatrix();
         $correlated = [];
 
-        if (!isset($correlationMatrix[$symbol])) {
+        if (! isset($correlationMatrix[$symbol])) {
             return [];
         }
 

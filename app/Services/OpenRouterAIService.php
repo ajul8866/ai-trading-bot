@@ -12,7 +12,9 @@ use Illuminate\Support\Facades\Log;
 class OpenRouterAIService implements AIServiceInterface
 {
     private string $apiKey;
+
     private string $model;
+
     private string $baseUrl = 'https://openrouter.ai/api/v1';
 
     public function __construct()
@@ -51,13 +53,16 @@ class OpenRouterAIService implements AIServiceInterface
 
             if ($response->successful()) {
                 $aiResponse = $response->json('choices.0.message.content');
+
                 return $this->parseAIResponse($marketData->symbol, $aiResponse);
             }
 
             Log::error('Failed to get AI decision', ['response' => $response->body()]);
+
             return $this->createFallbackDecision($marketData, 'Failed to get AI response');
         } catch (\Exception $e) {
             Log::error('Exception getting AI decision', ['error' => $e->getMessage()]);
+
             return $this->createFallbackDecision($marketData, $e->getMessage());
         }
     }
@@ -69,7 +74,7 @@ class OpenRouterAIService implements AIServiceInterface
 
     private function getSystemPrompt(): string
     {
-        return <<<PROMPT
+        return <<<'PROMPT'
 You are an expert cryptocurrency futures trading AI. Your role is to analyze market data and make informed trading decisions.
 
 You must respond ONLY with a valid JSON object in this exact format:
@@ -155,9 +160,11 @@ PROMPT;
             }
 
             Log::warning('Failed to parse AI response as JSON', ['response' => $aiResponse]);
+
             return $this->createFallbackDecision(null, 'Invalid JSON response from AI', $symbol);
         } catch (\Exception $e) {
             Log::error('Exception parsing AI response', ['error' => $e->getMessage()]);
+
             return $this->createFallbackDecision(null, $e->getMessage(), $symbol);
         }
     }

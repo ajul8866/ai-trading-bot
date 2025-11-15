@@ -136,8 +136,8 @@ class AdvancedIndicatorService
         ];
 
         return [
-            'retracement_levels' => array_map(fn($v) => round($v, 2), $levels),
-            'extension_levels' => array_map(fn($v) => round($v, 2), $extensions),
+            'retracement_levels' => array_map(fn ($v) => round($v, 2), $levels),
+            'extension_levels' => array_map(fn ($v) => round($v, 2), $extensions),
             'trend' => $isUptrend ? 'UPTREND' : 'DOWNTREND',
             'swing_high' => round($highest, 2),
             'swing_low' => round($lowest, 2),
@@ -223,7 +223,7 @@ class AdvancedIndicatorService
             'value_area_high' => round($valuAreaResult['vah'], 2),
             'value_area_low' => round($valuAreaResult['val'], 2),
             'total_volume' => $totalVolume,
-            'profile' => array_map(fn($i) => [
+            'profile' => array_map(fn ($i) => [
                 'price_level' => round($lowestPrice + ($i * $bucketSize), 2),
                 'volume' => $volumeProfile[$i],
             ], array_keys($volumeProfile)),
@@ -420,7 +420,7 @@ class AdvancedIndicatorService
         }
 
         // Calculate median prices
-        $medianPrices = array_map(fn($candle) => ($candle['high'] + $candle['low']) / 2, $ohlcvData);
+        $medianPrices = array_map(fn ($candle) => ($candle['high'] + $candle['low']) / 2, $ohlcvData);
 
         // Calculate 5-period and 34-period SMAs of median price
         $sma5 = $this->calculateSMA($medianPrices, 5);
@@ -730,6 +730,7 @@ class AdvancedIndicatorService
         }
 
         $recentValues = array_slice($values, -$period);
+
         return array_sum($recentValues) / count($recentValues);
     }
 
@@ -756,6 +757,7 @@ class AdvancedIndicatorService
         }
 
         $recentTR = array_slice($trueRanges, -$period);
+
         return array_sum($recentTR) / count($recentTR);
     }
 
@@ -803,10 +805,19 @@ class AdvancedIndicatorService
 
         $position = ($price - $lower) / $range;
 
-        if ($position >= 0.8) return 'UPPER';
-        if ($position >= 0.6) return 'UPPER_MIDDLE';
-        if ($position >= 0.4) return 'MIDDLE';
-        if ($position >= 0.2) return 'LOWER_MIDDLE';
+        if ($position >= 0.8) {
+            return 'UPPER';
+        }
+        if ($position >= 0.6) {
+            return 'UPPER_MIDDLE';
+        }
+        if ($position >= 0.4) {
+            return 'MIDDLE';
+        }
+        if ($position >= 0.2) {
+            return 'LOWER_MIDDLE';
+        }
+
         return 'LOWER';
     }
 
@@ -814,7 +825,7 @@ class AdvancedIndicatorService
     {
         if ($isUptrend && $price > $sar) {
             return 'BULLISH';
-        } elseif (!$isUptrend && $price < $sar) {
+        } elseif (! $isUptrend && $price < $sar) {
             return 'BEARISH';
         } else {
             return 'REVERSAL';
@@ -823,24 +834,43 @@ class AdvancedIndicatorService
 
     private function getStochRSISignal(float $stochRSI): string
     {
-        if ($stochRSI < 20) return 'OVERSOLD';
-        if ($stochRSI > 80) return 'OVERBOUGHT';
+        if ($stochRSI < 20) {
+            return 'OVERSOLD';
+        }
+        if ($stochRSI > 80) {
+            return 'OVERBOUGHT';
+        }
+
         return 'NEUTRAL';
     }
 
     private function getWilliamsRSignal(float $williamsR): string
     {
-        if ($williamsR < -80) return 'OVERSOLD';
-        if ($williamsR > -20) return 'OVERBOUGHT';
+        if ($williamsR < -80) {
+            return 'OVERSOLD';
+        }
+        if ($williamsR > -20) {
+            return 'OVERBOUGHT';
+        }
+
         return 'NEUTRAL';
     }
 
     private function getCMFSignal(float $cmf): string
     {
-        if ($cmf > 0.2) return 'STRONG_BUYING_PRESSURE';
-        if ($cmf > 0.05) return 'BUYING_PRESSURE';
-        if ($cmf < -0.2) return 'STRONG_SELLING_PRESSURE';
-        if ($cmf < -0.05) return 'SELLING_PRESSURE';
+        if ($cmf > 0.2) {
+            return 'STRONG_BUYING_PRESSURE';
+        }
+        if ($cmf > 0.05) {
+            return 'BUYING_PRESSURE';
+        }
+        if ($cmf < -0.2) {
+            return 'STRONG_SELLING_PRESSURE';
+        }
+        if ($cmf < -0.05) {
+            return 'SELLING_PRESSURE';
+        }
+
         return 'NEUTRAL';
     }
 }

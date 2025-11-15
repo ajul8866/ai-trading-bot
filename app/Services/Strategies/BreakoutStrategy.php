@@ -59,22 +59,36 @@ class BreakoutStrategy implements TradingStrategyInterface
 
     // Strategy parameters
     private int $consolidationPeriod = 20; // Minimum candles for consolidation
+
     private float $consolidationThreshold = 0.015; // 1.5% range for consolidation
+
     private float $volumeMultiplier = 2.0; // Volume must be 2x average
+
     private int $volumeAvgPeriod = 20;
+
     private int $atrPeriod = 14;
+
     private float $atrExpansionThreshold = 1.3; // ATR must expand by 30%
+
     private int $supportResistancePeriod = 50;
+
     private float $supportResistanceStrength = 3; // Minimum touches for valid level
+
     private int $bollingerPeriod = 20;
+
     private float $bollingerStdDev = 2.0;
+
     private float $squeezeThreshold = 0.02; // BB width indicating squeeze
+
     private float $breakoutThreshold = 0.005; // 0.5% beyond level for confirmation
+
     private float $riskRewardRatio = 2.5;
 
     // Pattern recognition parameters
     private int $patternLookback = 50;
+
     private float $flagSlopeThreshold = 0.3;
+
     private float $triangleConvergence = 0.7;
 
     public function __construct(TechnicalIndicatorService $indicatorService)
@@ -141,8 +155,8 @@ class BreakoutStrategy implements TradingStrategyInterface
         } else {
             $reasons[] = 'No confirmed breakout detected';
             $reasons[] = $breakout['status'] ?? 'Waiting for consolidation and breakout setup';
-            if (!empty($patterns)) {
-                $reasons[] = "Pattern forming: " . implode(', ', array_column($patterns, 'type'));
+            if (! empty($patterns)) {
+                $reasons[] = 'Pattern forming: '.implode(', ', array_column($patterns, 'type'));
             }
         }
 
@@ -278,6 +292,7 @@ class BreakoutStrategy implements TradingStrategyInterface
         }
 
         $recentTR = array_slice($trueRanges, -$period);
+
         return array_sum($recentTR) / count($recentTR);
     }
 
@@ -300,11 +315,11 @@ class BreakoutStrategy implements TradingStrategyInterface
         $supportLevels = $this->clusterLevels($pivotLows, 0.003);
 
         // Sort by strength (number of touches)
-        usort($resistanceLevels, function($a, $b) {
+        usort($resistanceLevels, function ($a, $b) {
             return $b['touches'] - $a['touches'];
         });
 
-        usort($supportLevels, function($a, $b) {
+        usort($supportLevels, function ($a, $b) {
             return $b['touches'] - $a['touches'];
         });
 
@@ -439,7 +454,7 @@ class BreakoutStrategy implements TradingStrategyInterface
                 }
             }
 
-            if (!$foundCluster) {
+            if (! $foundCluster) {
                 $clustered[] = [
                     'price' => $level['price'],
                     'touches' => 1,
@@ -532,18 +547,18 @@ class BreakoutStrategy implements TradingStrategyInterface
 
         for ($i = 2; $i < $length - 2; $i++) {
             // Pivot high
-            if ($recentData[$i]['high'] > $recentData[$i-1]['high'] &&
-                $recentData[$i]['high'] > $recentData[$i-2]['high'] &&
-                $recentData[$i]['high'] > $recentData[$i+1]['high'] &&
-                $recentData[$i]['high'] > $recentData[$i+2]['high']) {
+            if ($recentData[$i]['high'] > $recentData[$i - 1]['high'] &&
+                $recentData[$i]['high'] > $recentData[$i - 2]['high'] &&
+                $recentData[$i]['high'] > $recentData[$i + 1]['high'] &&
+                $recentData[$i]['high'] > $recentData[$i + 2]['high']) {
                 $highPoints[] = ['index' => $i, 'value' => $recentData[$i]['high']];
             }
 
             // Pivot low
-            if ($recentData[$i]['low'] < $recentData[$i-1]['low'] &&
-                $recentData[$i]['low'] < $recentData[$i-2]['low'] &&
-                $recentData[$i]['low'] < $recentData[$i+1]['low'] &&
-                $recentData[$i]['low'] < $recentData[$i+2]['low']) {
+            if ($recentData[$i]['low'] < $recentData[$i - 1]['low'] &&
+                $recentData[$i]['low'] < $recentData[$i - 2]['low'] &&
+                $recentData[$i]['low'] < $recentData[$i + 1]['low'] &&
+                $recentData[$i]['low'] < $recentData[$i + 2]['low']) {
                 $lowPoints[] = ['index' => $i, 'value' => $recentData[$i]['low']];
             }
         }
@@ -620,7 +635,7 @@ class BreakoutStrategy implements TradingStrategyInterface
         $isBullishFlag = $poleMove > 3 && $flagSlope < 0 && $flagRange < 5;
         $isBearishFlag = $poleMove < -3 && $flagSlope > 0 && $flagRange < 5;
 
-        if (!$isBullishFlag && !$isBearishFlag) {
+        if (! $isBullishFlag && ! $isBearishFlag) {
             return ['detected' => false];
         }
 
@@ -667,7 +682,9 @@ class BreakoutStrategy implements TradingStrategyInterface
     private function calculateLinearRegressionSlope(array $values): float
     {
         $n = count($values);
-        if ($n < 2) return 0;
+        if ($n < 2) {
+            return 0;
+        }
 
         $sumX = 0;
         $sumY = 0;
@@ -683,7 +700,9 @@ class BreakoutStrategy implements TradingStrategyInterface
 
         $denominator = ($n * $sumXX) - ($sumX * $sumX);
 
-        if ($denominator == 0) return 0;
+        if ($denominator == 0) {
+            return 0;
+        }
 
         return (($n * $sumXY) - ($sumX * $sumY)) / $denominator;
     }
@@ -737,7 +756,7 @@ class BreakoutStrategy implements TradingStrategyInterface
         $volatility = 0;
         if (count($returns) > 0) {
             $mean = array_sum($returns) / count($returns);
-            $squaredDiffs = array_map(function($r) use ($mean) {
+            $squaredDiffs = array_map(function ($r) use ($mean) {
                 return pow($r - $mean, 2);
             }, $returns);
             $variance = array_sum($squaredDiffs) / count($returns);
@@ -778,8 +797,9 @@ class BreakoutStrategy implements TradingStrategyInterface
         ];
 
         // Check for consolidation first
-        if (!$analysis['is_consolidating'] && !$analysis['is_squeeze']) {
+        if (! $analysis['is_consolidating'] && ! $analysis['is_squeeze']) {
             $breakout['status'] = 'Not in consolidation phase';
+
             return $breakout;
         }
 
@@ -813,7 +833,7 @@ class BreakoutStrategy implements TradingStrategyInterface
                 // 3. Squeeze release
                 if ($analysis['is_squeeze']) {
                     $confirmations++;
-                    $breakout['reasons'][] = "Bollinger Band squeeze released";
+                    $breakout['reasons'][] = 'Bollinger Band squeeze released';
                 }
 
                 // 4. Strong level (multiple touches)
@@ -861,7 +881,7 @@ class BreakoutStrategy implements TradingStrategyInterface
 
                 if ($analysis['is_squeeze']) {
                     $confirmations++;
-                    $breakout['reasons'][] = "Bollinger Band squeeze released";
+                    $breakout['reasons'][] = 'Bollinger Band squeeze released';
                 }
 
                 if ($levels['nearest_support']['touches'] >= $this->supportResistanceStrength) {
@@ -924,7 +944,7 @@ class BreakoutStrategy implements TradingStrategyInterface
     {
         $strength = 0;
 
-        if (!$breakout['confirmed']) {
+        if (! $breakout['confirmed']) {
             return 0;
         }
 
@@ -956,7 +976,7 @@ class BreakoutStrategy implements TradingStrategyInterface
     {
         $confidence = 0;
 
-        if (!$breakout['confirmed']) {
+        if (! $breakout['confirmed']) {
             return 0;
         }
 
@@ -1025,7 +1045,7 @@ class BreakoutStrategy implements TradingStrategyInterface
     public function canTrade(MarketAnalysisDTO $marketData): bool
     {
         foreach ($this->getRequiredTimeframes() as $timeframe) {
-            if (!isset($marketData->ohlcvData[$timeframe]) || empty($marketData->ohlcvData[$timeframe])) {
+            if (! isset($marketData->ohlcvData[$timeframe]) || empty($marketData->ohlcvData[$timeframe])) {
                 return false;
             }
 

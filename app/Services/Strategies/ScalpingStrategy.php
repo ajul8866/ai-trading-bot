@@ -58,25 +58,42 @@ class ScalpingStrategy implements TradingStrategyInterface
 
     // Strategy parameters
     private int $fastEMA = 5;
+
     private int $slowEMA = 10;
+
     private int $trendEMA = 20;
+
     private int $stochasticK = 14;
+
     private int $stochasticD = 3;
+
     private int $stochasticSmooth = 3;
+
     private float $stochasticOversold = 20;
+
     private float $stochasticOverbought = 80;
+
     private int $rsiPeriod = 9; // Fast RSI for scalping
+
     private float $rsiOversold = 30;
+
     private float $rsiOverbought = 70;
+
     private float $targetProfitPercent = 0.004; // 0.4% target
+
     private float $stopLossPercent = 0.003; // 0.3% stop
+
     private int $momentumPeriod = 10;
+
     private int $volumeAvgPeriod = 20;
+
     private float $minLiquidityRatio = 1.5; // Volume must be 1.5x average
 
     // Microstructure parameters
     private float $spreadThreshold = 0.001; // 0.1% max spread
+
     private int $orderFlowPeriod = 5; // Last 5 candles for order flow
+
     private float $trendStrengthThreshold = 0.6;
 
     public function __construct(TechnicalIndicatorService $indicatorService)
@@ -404,7 +421,9 @@ class ScalpingStrategy implements TradingStrategyInterface
 
         foreach ($recentCandles as $candle) {
             $range = $candle['high'] - $candle['low'];
-            if ($range == 0) continue;
+            if ($range == 0) {
+                continue;
+            }
 
             // If close is in upper half of range, buying pressure
             $closePosition = ($candle['close'] - $candle['low']) / $range;
@@ -524,7 +543,7 @@ class ScalpingStrategy implements TradingStrategyInterface
 
         // Check 5m and 15m timeframes for overall bias
         foreach (['5m', '15m'] as $timeframe) {
-            if (!isset($marketData->ohlcvData[$timeframe]) || empty($marketData->ohlcvData[$timeframe])) {
+            if (! isset($marketData->ohlcvData[$timeframe]) || empty($marketData->ohlcvData[$timeframe])) {
                 continue;
             }
 
@@ -551,8 +570,12 @@ class ScalpingStrategy implements TradingStrategyInterface
         $bearishCount = 0;
 
         foreach ($bias as $tf => $data) {
-            if ($data['direction'] === 'BULLISH') $bullishCount++;
-            if ($data['direction'] === 'BEARISH') $bearishCount++;
+            if ($data['direction'] === 'BULLISH') {
+                $bullishCount++;
+            }
+            if ($data['direction'] === 'BEARISH') {
+                $bearishCount++;
+            }
         }
 
         $overall = 'NEUTRAL';
@@ -584,14 +607,16 @@ class ScalpingStrategy implements TradingStrategyInterface
         ];
 
         // Must have favorable microstructure
-        if (!$microstructure['is_liquid']) {
+        if (! $microstructure['is_liquid']) {
             $opportunity['status'] = 'Spread too wide - low liquidity';
+
             return $opportunity;
         }
 
         // Must have sufficient liquidity
-        if (!$liquidity['is_liquid']) {
+        if (! $liquidity['is_liquid']) {
             $opportunity['status'] = 'Insufficient volume';
+
             return $opportunity;
         }
 
@@ -683,7 +708,7 @@ class ScalpingStrategy implements TradingStrategyInterface
             $opportunity['quality'] = round($shortQuality, 2);
             $opportunity['reasons'] = $shortReasons;
         } else {
-            $opportunity['status'] = 'No high-quality setup (Long: ' . round($longQuality, 2) . ', Short: ' . round($shortQuality, 2) . ')';
+            $opportunity['status'] = 'No high-quality setup (Long: '.round($longQuality, 2).', Short: '.round($shortQuality, 2).')';
         }
 
         return $opportunity;
@@ -771,7 +796,7 @@ class ScalpingStrategy implements TradingStrategyInterface
     public function canTrade(MarketAnalysisDTO $marketData): bool
     {
         // Check 1m timeframe availability (critical for scalping)
-        if (!isset($marketData->ohlcvData['1m']) || empty($marketData->ohlcvData['1m'])) {
+        if (! isset($marketData->ohlcvData['1m']) || empty($marketData->ohlcvData['1m'])) {
             return false;
         }
 

@@ -2,10 +2,9 @@
 
 namespace App\Services;
 
-use App\Models\Trade;
 use App\Models\AiDecision;
 use App\Models\Setting;
-use Illuminate\Support\Facades\DB;
+use App\Models\Trade;
 use Carbon\Carbon;
 
 /**
@@ -175,7 +174,7 @@ class AdvancedAnalyticsService
         }
 
         // Sort by total PnL descending
-        uasort($performance, function($a, $b) {
+        uasort($performance, function ($a, $b) {
             return $b['total_pnl'] <=> $a['total_pnl'];
         });
 
@@ -214,7 +213,7 @@ class AdvancedAnalyticsService
             ];
         }
 
-        uasort($performance, function($a, $b) {
+        uasort($performance, function ($a, $b) {
             return $b['total_pnl'] <=> $a['total_pnl'];
         });
 
@@ -295,7 +294,7 @@ class AdvancedAnalyticsService
             if ($currentType === null) {
                 $currentType = $isWin ? 'WIN' : 'LOSS';
                 $currentStreak = 1;
-            } elseif (($isWin && $currentType === 'WIN') || (!$isWin && $currentType === 'LOSS')) {
+            } elseif (($isWin && $currentType === 'WIN') || (! $isWin && $currentType === 'LOSS')) {
                 $currentStreak++;
             } else {
                 // Streak ended, record it
@@ -325,8 +324,8 @@ class AdvancedAnalyticsService
         return [
             'max_win_streak' => $maxWinStreak,
             'max_loss_streak' => $maxLossStreak,
-            'avg_win_streak' => !empty($winStreaks) ? round(array_sum($winStreaks) / count($winStreaks), 2) : 0,
-            'avg_loss_streak' => !empty($lossStreaks) ? round(array_sum($lossStreaks) / count($lossStreaks), 2) : 0,
+            'avg_win_streak' => ! empty($winStreaks) ? round(array_sum($winStreaks) / count($winStreaks), 2) : 0,
+            'avg_loss_streak' => ! empty($lossStreaks) ? round(array_sum($lossStreaks) / count($lossStreaks), 2) : 0,
             'current_streak' => $currentStreak,
             'current_type' => $currentType,
         ];
@@ -426,12 +425,12 @@ class AdvancedAnalyticsService
                 'median_final_balance' => round($this->calculateMedian($finalBalances), 2),
                 'min_final_balance' => round(min($finalBalances), 2),
                 'max_final_balance' => round(max($finalBalances), 2),
-                'percentile_5' => round($finalBalances[(int)(count($finalBalances) * 0.05)], 2),
-                'percentile_95' => round($finalBalances[(int)(count($finalBalances) * 0.95)], 2),
+                'percentile_5' => round($finalBalances[(int) (count($finalBalances) * 0.05)], 2),
+                'percentile_95' => round($finalBalances[(int) (count($finalBalances) * 0.95)], 2),
             ],
             'risk_metrics' => [
-                'probability_of_profit' => round((count(array_filter($finalBalances, fn($b) => $b > $initialBalance)) / count($finalBalances)) * 100, 2),
-                'probability_of_ruin' => round((count(array_filter($finalBalances, fn($b) => $b <= $initialBalance * 0.5)) / count($finalBalances)) * 100, 2),
+                'probability_of_profit' => round((count(array_filter($finalBalances, fn ($b) => $b > $initialBalance)) / count($finalBalances)) * 100, 2),
+                'probability_of_ruin' => round((count(array_filter($finalBalances, fn ($b) => $b <= $initialBalance * 0.5)) / count($finalBalances)) * 100, 2),
             ],
         ];
     }
@@ -455,7 +454,7 @@ class AdvancedAnalyticsService
         }
 
         // Sort by quality score
-        usort($qualityScores, function($a, $b) {
+        usort($qualityScores, function ($a, $b) {
             return $b['total_score'] <=> $a['total_score'];
         });
 
@@ -526,12 +525,12 @@ class AdvancedAnalyticsService
         $avgReturn = array_sum($returns) / count($returns);
 
         // Downside deviation
-        $negativeReturns = array_filter($returns, fn($r) => $r < 0);
+        $negativeReturns = array_filter($returns, fn ($r) => $r < 0);
         if (empty($negativeReturns)) {
             return $avgReturn > 0 ? 999 : 0;
         }
 
-        $downsideVariance = array_sum(array_map(fn($r) => $r ** 2, $negativeReturns)) / count($returns);
+        $downsideVariance = array_sum(array_map(fn ($r) => $r ** 2, $negativeReturns)) / count($returns);
         $downsideStdDev = sqrt($downsideVariance);
 
         return $downsideStdDev > 0 ? $avgReturn / $downsideStdDev : 0;
@@ -572,7 +571,7 @@ class AdvancedAnalyticsService
                 $currentDrawdown = ($peak - $balance) / $peak;
                 $maxDrawdown = max($maxDrawdown, $currentDrawdown);
 
-                if (!$inDrawdown) {
+                if (! $inDrawdown) {
                     $inDrawdown = true;
                     $drawdownStart = $trade->created_at;
                 }
@@ -583,7 +582,7 @@ class AdvancedAnalyticsService
             }
         }
 
-        $avgDrawdown = !empty($drawdowns) ? array_sum($drawdowns) / count($drawdowns) : 0;
+        $avgDrawdown = ! empty($drawdowns) ? array_sum($drawdowns) / count($drawdowns) : 0;
         $recoveryFactor = $maxDrawdown > 0 ? $trades->sum('pnl') / ($maxDrawdown * $peak) : 0;
 
         return [
@@ -640,11 +639,11 @@ class AdvancedAnalyticsService
         $avgMinutes = array_sum($durations) / count($durations);
 
         if ($avgMinutes < 60) {
-            return round($avgMinutes) . ' minutes';
+            return round($avgMinutes).' minutes';
         } elseif ($avgMinutes < 1440) {
-            return round($avgMinutes / 60, 1) . ' hours';
+            return round($avgMinutes / 60, 1).' hours';
         } else {
-            return round($avgMinutes / 1440, 1) . ' days';
+            return round($avgMinutes / 1440, 1).' days';
         }
     }
 
@@ -714,9 +713,9 @@ class AdvancedAnalyticsService
 
     private function groupByMonth($trades): array
     {
-        return $trades->groupBy(function($trade) {
+        return $trades->groupBy(function ($trade) {
             return $trade->created_at->format('Y-m');
-        })->map(function($monthTrades, $month) {
+        })->map(function ($monthTrades, $month) {
             return [
                 'month' => $month,
                 'count' => $monthTrades->count(),
@@ -728,9 +727,9 @@ class AdvancedAnalyticsService
 
     private function groupByYear($trades): array
     {
-        return $trades->groupBy(function($trade) {
+        return $trades->groupBy(function ($trade) {
             return $trade->created_at->format('Y');
-        })->map(function($yearTrades, $year) {
+        })->map(function ($yearTrades, $year) {
             return [
                 'year' => $year,
                 'count' => $yearTrades->count(),
@@ -776,7 +775,7 @@ class AdvancedAnalyticsService
             return 0;
         }
 
-        $squaredDiffs = array_map(fn($v) => ($v - $mean) ** 2, $values);
+        $squaredDiffs = array_map(fn ($v) => ($v - $mean) ** 2, $values);
         $variance = array_sum($squaredDiffs) / count($values);
 
         return sqrt($variance);
@@ -788,7 +787,7 @@ class AdvancedAnalyticsService
             return 0;
         }
 
-        $cubedDiffs = array_map(fn($v) => (($v - $mean) / $stdDev) ** 3, $values);
+        $cubedDiffs = array_map(fn ($v) => (($v - $mean) / $stdDev) ** 3, $values);
 
         return array_sum($cubedDiffs) / count($values);
     }
@@ -799,7 +798,7 @@ class AdvancedAnalyticsService
             return 0;
         }
 
-        $fourthPowers = array_map(fn($v) => (($v - $mean) / $stdDev) ** 4, $values);
+        $fourthPowers = array_map(fn ($v) => (($v - $mean) / $stdDev) ** 4, $values);
 
         return (array_sum($fourthPowers) / count($values)) - 3; // Excess kurtosis
     }
@@ -845,7 +844,7 @@ class AdvancedAnalyticsService
         for ($i = 0; $i < $buckets; $i++) {
             $bucketStart = $min + ($i * $bucketSize);
             $result[] = [
-                'range' => round($bucketStart, 2) . ' to ' . round($bucketStart + $bucketSize, 2),
+                'range' => round($bucketStart, 2).' to '.round($bucketStart + $bucketSize, 2),
                 'count' => $histogram[$i],
             ];
         }
@@ -944,11 +943,22 @@ class AdvancedAnalyticsService
 
     private function scoreToGrade(float $score): string
     {
-        if ($score >= 90) return 'A+';
-        if ($score >= 80) return 'A';
-        if ($score >= 70) return 'B';
-        if ($score >= 60) return 'C';
-        if ($score >= 50) return 'D';
+        if ($score >= 90) {
+            return 'A+';
+        }
+        if ($score >= 80) {
+            return 'A';
+        }
+        if ($score >= 70) {
+            return 'B';
+        }
+        if ($score >= 60) {
+            return 'C';
+        }
+        if ($score >= 50) {
+            return 'D';
+        }
+
         return 'F';
     }
 }

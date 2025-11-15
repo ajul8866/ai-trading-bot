@@ -55,19 +55,30 @@ class MeanReversionStrategy implements TradingStrategyInterface
 
     // Strategy parameters (optimizable)
     private int $bollingerPeriod = 20;
+
     private float $bollingerStdDev = 2.0;
+
     private int $rsiPeriod = 14;
+
     private float $rsiOversold = 30;
+
     private float $rsiOverbought = 70;
+
     private int $volumeAvgPeriod = 20;
+
     private float $volumeSpikeMultiplier = 1.5;
+
     private int $zScorePeriod = 20;
+
     private float $zScoreExtreme = 2.0;
+
     private float $riskRewardRatio = 1.5;
+
     private int $meanPeriod = 50;
 
     // Market regime detection
     private float $trendThreshold = 0.02; // 2% slope indicates trending
+
     private int $rangeDetectionPeriod = 50;
 
     public function __construct(TechnicalIndicatorService $indicatorService)
@@ -266,7 +277,7 @@ class MeanReversionStrategy implements TradingStrategyInterface
         $mean = array_sum($recentPrices) / count($recentPrices);
 
         // Calculate standard deviation
-        $squaredDiffs = array_map(function($price) use ($mean) {
+        $squaredDiffs = array_map(function ($price) use ($mean) {
             return pow($price - $mean, 2);
         }, $recentPrices);
 
@@ -336,15 +347,27 @@ class MeanReversionStrategy implements TradingStrategyInterface
         if ($bullishEngulfing || $hammer || $morningStarDoji) {
             $reversalSignal = true;
             $direction = 'BULLISH';
-            if ($bullishEngulfing) $pattern = 'BULLISH_ENGULFING';
-            if ($hammer) $pattern = 'HAMMER';
-            if ($morningStarDoji) $pattern = 'MORNING_STAR_DOJI';
+            if ($bullishEngulfing) {
+                $pattern = 'BULLISH_ENGULFING';
+            }
+            if ($hammer) {
+                $pattern = 'HAMMER';
+            }
+            if ($morningStarDoji) {
+                $pattern = 'MORNING_STAR_DOJI';
+            }
         } elseif ($bearishEngulfing || $shootingStar || $eveningStarDoji) {
             $reversalSignal = true;
             $direction = 'BEARISH';
-            if ($bearishEngulfing) $pattern = 'BEARISH_ENGULFING';
-            if ($shootingStar) $pattern = 'SHOOTING_STAR';
-            if ($eveningStarDoji) $pattern = 'EVENING_STAR_DOJI';
+            if ($bearishEngulfing) {
+                $pattern = 'BEARISH_ENGULFING';
+            }
+            if ($shootingStar) {
+                $pattern = 'SHOOTING_STAR';
+            }
+            if ($eveningStarDoji) {
+                $pattern = 'EVENING_STAR_DOJI';
+            }
         }
 
         return [
@@ -503,7 +526,9 @@ class MeanReversionStrategy implements TradingStrategyInterface
     private function calculateLinearRegressionSlope(array $prices): float
     {
         $n = count($prices);
-        if ($n < 2) return 0;
+        if ($n < 2) {
+            return 0;
+        }
 
         $sumX = 0;
         $sumY = 0;
@@ -519,7 +544,9 @@ class MeanReversionStrategy implements TradingStrategyInterface
 
         $denominator = ($n * $sumXX) - ($sumX * $sumX);
 
-        if ($denominator == 0) return 0;
+        if ($denominator == 0) {
+            return 0;
+        }
 
         return (($n * $sumXY) - ($sumX * $sumY)) / $denominator;
     }
@@ -823,7 +850,7 @@ class MeanReversionStrategy implements TradingStrategyInterface
     public function canTrade(MarketAnalysisDTO $marketData): bool
     {
         foreach ($this->getRequiredTimeframes() as $timeframe) {
-            if (!isset($marketData->ohlcvData[$timeframe]) || empty($marketData->ohlcvData[$timeframe])) {
+            if (! isset($marketData->ohlcvData[$timeframe]) || empty($marketData->ohlcvData[$timeframe])) {
                 return false;
             }
 
@@ -870,11 +897,13 @@ class MeanReversionStrategy implements TradingStrategyInterface
                 // Stop below lower band with buffer
                 $lowerBand = $analysis['bollinger_lower'];
                 $buffer = ($analysis['bollinger_middle'] - $lowerBand) * 0.2;
+
                 return round($lowerBand - $buffer, 2);
             } else {
                 // Stop above upper band with buffer
                 $upperBand = $analysis['bollinger_upper'];
                 $buffer = ($upperBand - $analysis['bollinger_middle']) * 0.2;
+
                 return round($upperBand + $buffer, 2);
             }
         }

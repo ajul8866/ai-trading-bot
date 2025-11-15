@@ -10,7 +10,9 @@ use Livewire\Component;
 class BotStatus extends Component
 {
     public bool $botEnabled = false;
+
     public int $openPositions = 0;
+
     public float $todayPnL = 0;
 
     public function mount()
@@ -30,7 +32,7 @@ class BotStatus extends Component
 
     public function toggleBot()
     {
-        $this->botEnabled = !$this->botEnabled;
+        $this->botEnabled = ! $this->botEnabled;
 
         Setting::updateOrCreate(
             ['key' => 'bot_enabled'],

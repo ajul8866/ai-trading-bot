@@ -36,18 +36,20 @@ class AnalyzeMarketJob implements ShouldQueue
         RiskManagementService $riskService
     ): void {
         try {
-            Log::info("Analyzing market for symbol", ['symbol' => $this->symbol]);
+            Log::info('Analyzing market for symbol', ['symbol' => $this->symbol]);
 
             // Check if bot is enabled
             $botEnabled = Setting::where('key', 'bot_enabled')->value('value') === 'true';
-            if (!$botEnabled) {
-                Log::info("Bot is disabled, skipping analysis");
+            if (! $botEnabled) {
+                Log::info('Bot is disabled, skipping analysis');
+
                 return;
             }
 
             // Check risk limits
             if ($riskService->isDailyLossLimitReached()) {
-                Log::warning("Daily loss limit reached, skipping analysis");
+                Log::warning('Daily loss limit reached, skipping analysis');
+
                 return;
             }
 
@@ -70,11 +72,12 @@ class AnalyzeMarketJob implements ShouldQueue
                     $allIndicators[$timeframe] = $cachedData['indicators'];
                 } else {
                     // If not cached, dispatch fetch job and skip this analysis
-                    Log::info("Market data not in cache, dispatching fetch job", [
+                    Log::info('Market data not in cache, dispatching fetch job', [
                         'symbol' => $this->symbol,
                         'timeframe' => $timeframe,
                     ]);
                     FetchMarketDataJob::dispatch($this->symbol, $timeframe);
+
                     return;
                 }
             }
@@ -105,7 +108,7 @@ class AnalyzeMarketJob implements ShouldQueue
             );
 
             // Get AI decision
-            Log::info("Requesting AI analysis", ['symbol' => $this->symbol]);
+            Log::info('Requesting AI analysis', ['symbol' => $this->symbol]);
             $decision = $aiService->analyzeAndDecide($marketAnalysis);
 
             // Store AI decision in database
@@ -124,7 +127,7 @@ class AnalyzeMarketJob implements ShouldQueue
                 'analyzed_at' => now(),
             ]);
 
-            Log::info("AI decision received", [
+            Log::info('AI decision received', [
                 'symbol' => $this->symbol,
                 'decision' => $decision->decision,
                 'confidence' => $decision->confidence,
@@ -134,14 +137,14 @@ class AnalyzeMarketJob implements ShouldQueue
             $minConfidence = (int) Setting::where('key', 'min_confidence')->value('value') ?? 70;
 
             if ($decision->shouldExecute($minConfidence) && $riskService->canOpenPosition()) {
-                Log::info("Decision meets execution criteria, dispatching execution job", [
+                Log::info('Decision meets execution criteria, dispatching execution job', [
                     'symbol' => $this->symbol,
                     'decision' => $decision->decision,
                 ]);
 
                 ExecuteTradeJob::dispatch($aiDecision->id);
             } else {
-                Log::info("Decision does not meet execution criteria", [
+                Log::info('Decision does not meet execution criteria', [
                     'symbol' => $this->symbol,
                     'decision' => $decision->decision,
                     'confidence' => $decision->confidence,
@@ -149,7 +152,7 @@ class AnalyzeMarketJob implements ShouldQueue
                 ]);
             }
         } catch (\Exception $e) {
-            Log::error("Error analyzing market", [
+            Log::error('Error analyzing market', [
                 'symbol' => $this->symbol,
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
