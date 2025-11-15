@@ -8,6 +8,9 @@ use Carbon\Carbon;
 
 class RiskManagementService
 {
+    public function __construct(
+        private BinanceService $binanceService
+    ) {}
     /**
      * Check if we can open a new position
      */
@@ -30,8 +33,8 @@ class RiskManagementService
             ->whereDate('closed_at', Carbon::today())
             ->sum('pnl');
 
-        // Calculate account balance (from settings or live)
-        $accountBalance = 10000; // TODO: Get from Binance API
+        // Get account balance from Binance
+        $accountBalance = $this->binanceService->getAccountBalance();
 
         $lossPercentage = abs($todayLoss / $accountBalance) * 100;
 

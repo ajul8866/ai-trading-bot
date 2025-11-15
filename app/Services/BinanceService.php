@@ -147,6 +147,29 @@ class BinanceService implements ExchangeInterface
         }
     }
 
+    /**
+     * Get account balance for a specific asset (defaults to USDT)
+     */
+    public function getAccountBalance(string $asset = 'USDT'): float
+    {
+        $balance = $this->getBalance();
+
+        if (isset($balance['error'])) {
+            Log::warning('Failed to get account balance, using default', ['error' => $balance['error']]);
+            return 10000.0; // Default fallback
+        }
+
+        // Find the asset in the balance array
+        foreach ($balance as $assetBalance) {
+            if (isset($assetBalance['asset']) && $assetBalance['asset'] === $asset) {
+                return (float) ($assetBalance['availableBalance'] ?? $assetBalance['balance'] ?? 0);
+            }
+        }
+
+        Log::warning('Asset not found in balance response, using default', ['asset' => $asset]);
+        return 10000.0; // Default fallback
+    }
+
     public function getOpenPositions(): array
     {
         if (empty($this->apiKey) || empty($this->apiSecret)) {

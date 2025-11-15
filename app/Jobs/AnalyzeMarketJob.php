@@ -80,8 +80,7 @@ class AnalyzeMarketJob implements ShouldQueue
             }
 
             // Get account information
-            $balance = $binanceService->getBalance();
-            $accountBalance = 10000; // Default, TODO: parse from balance response
+            $accountBalance = $binanceService->getAccountBalance();
 
             $openPositions = Trade::where('status', 'OPEN')
                 ->where('symbol', $this->symbol)
