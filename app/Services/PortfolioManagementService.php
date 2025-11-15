@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Setting;
 use App\Models\Trade;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Portfolio Management Service
@@ -775,9 +776,44 @@ class PortfolioManagementService
 
     private function calculateUnrealizedPnL($position): float
     {
-        // Would fetch current price and calculate
-        // Simplified for now
-        return 0;
+        try {
+            // Get BinanceService instance
+            $binanceService = app(BinanceService::class);
+
+            // Get current price for the symbol
+            $currentPrice = $binanceService->getCurrentPrice($position->symbol);
+
+            if ($currentPrice <= 0) {
+                Log::warning('Invalid current price for unrealized PnL calculation', [
+                    'symbol' => $position->symbol,
+                    'price' => $currentPrice,
+                ]);
+                return 0;
+            }
+
+            // Calculate P&L based on position side
+            $priceDifference = 0;
+
+            if ($position->side === 'LONG') {
+                // For LONG: profit when current price > entry price
+                $priceDifference = $currentPrice - $position->entry_price;
+            } else {
+                // For SHORT: profit when current price < entry price
+                $priceDifference = $position->entry_price - $currentPrice;
+            }
+
+            // Calculate unrealized PnL: price difference * quantity * leverage
+            $unrealizedPnL = $priceDifference * $position->quantity * ($position->leverage ?? 1);
+
+            return $unrealizedPnL;
+        } catch (\Exception $e) {
+            Log::error('Error calculating unrealized PnL', [
+                'position_id' => $position->id ?? null,
+                'error' => $e->getMessage(),
+            ]);
+
+            return 0;
+        }
     }
 
     private function calculatePositionRisk($position): float
