@@ -37,9 +37,14 @@ class RiskManagementService
         // Get account balance from Binance
         $accountBalance = $this->binanceService->getAccountBalance();
 
+        // If account balance is 0 or there's no loss, return false
+        if ($accountBalance == 0 || $todayLoss >= 0) {
+            return false;
+        }
+
         $lossPercentage = abs($todayLoss / $accountBalance) * 100;
 
-        return $todayLoss < 0 && $lossPercentage >= $dailyLossLimit;
+        return $lossPercentage >= $dailyLossLimit;
     }
 
     /**
