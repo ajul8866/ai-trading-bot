@@ -78,7 +78,7 @@ class ExecuteTradeJob implements ShouldQueue
 
                 // Calculate position size
                 $currentPrice = $binanceService->getCurrentPrice($aiDecision->symbol);
-                $accountBalance = 10000; // TODO: Get from Binance API
+                $accountBalance = $binanceService->getAccountBalance();
 
                 $quantity = $riskService->calculatePositionSize(
                     $accountBalance,
