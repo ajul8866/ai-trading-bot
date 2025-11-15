@@ -42,8 +42,11 @@ class PatternRecognitionService
 {
     // Pattern detection parameters
     private float $tolerancePercent = 0.02; // 2% tolerance for level matching
+
     private int $minPatternLength = 10; // Minimum candles for pattern
+
     private int $maxPatternLength = 100; // Maximum candles for pattern
+
     private float $volumeConfirmationMultiplier = 1.3; // Volume should be 1.3x for confirmation
 
     /**
@@ -63,7 +66,7 @@ class PatternRecognitionService
         $patterns = array_merge($patterns, $this->detectCandlestickPatterns($ohlcvData));
 
         // Sort by confidence
-        usort($patterns, function($a, $b) {
+        usort($patterns, function ($a, $b) {
             return $b['confidence'] <=> $a['confidence'];
         });
 
@@ -1089,7 +1092,9 @@ class PatternRecognitionService
     private function calculateSlope(array $values): float
     {
         $n = count($values);
-        if ($n < 2) return 0;
+        if ($n < 2) {
+            return 0;
+        }
 
         $sumX = 0;
         $sumY = 0;
@@ -1105,7 +1110,9 @@ class PatternRecognitionService
 
         $denominator = ($n * $sumXX) - ($sumX * $sumX);
 
-        if ($denominator == 0) return 0;
+        if ($denominator == 0) {
+            return 0;
+        }
 
         return (($n * $sumXY) - ($sumX * $sumY)) / $denominator;
     }
@@ -1113,7 +1120,9 @@ class PatternRecognitionService
     private function calculateSlopeFromPoints(array $points): float
     {
         $n = count($points);
-        if ($n < 2) return 0;
+        if ($n < 2) {
+            return 0;
+        }
 
         $sumX = 0;
         $sumY = 0;
@@ -1131,7 +1140,9 @@ class PatternRecognitionService
 
         $denominator = ($n * $sumXX) - ($sumX * $sumX);
 
-        if ($denominator == 0) return 0;
+        if ($denominator == 0) {
+            return 0;
+        }
 
         return (($n * $sumXY) - ($sumX * $sumY)) / $denominator;
     }

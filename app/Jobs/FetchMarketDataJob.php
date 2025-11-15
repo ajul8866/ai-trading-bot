@@ -5,11 +5,11 @@ namespace App\Jobs;
 use App\Models\MarketData;
 use App\Services\BinanceService;
 use App\Services\TechnicalIndicatorService;
+use Carbon\Carbon;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
-use Carbon\Carbon;
 
 class FetchMarketDataJob implements ShouldQueue
 {
@@ -31,13 +31,14 @@ class FetchMarketDataJob implements ShouldQueue
         TechnicalIndicatorService $indicatorService
     ): void {
         try {
-            Log::info("Fetching market data", ['symbol' => $this->symbol, 'timeframe' => $this->timeframe]);
+            Log::info('Fetching market data', ['symbol' => $this->symbol, 'timeframe' => $this->timeframe]);
 
             // Fetch OHLCV data from Binance
             $ohlcvData = $binanceService->getOHLCV($this->symbol, $this->timeframe, 100);
 
             if (empty($ohlcvData)) {
-                Log::warning("No OHLCV data received", ['symbol' => $this->symbol, 'timeframe' => $this->timeframe]);
+                Log::warning('No OHLCV data received', ['symbol' => $this->symbol, 'timeframe' => $this->timeframe]);
+
                 return;
             }
 
@@ -72,13 +73,13 @@ class FetchMarketDataJob implements ShouldQueue
                 'timestamp' => now(),
             ], 180);
 
-            Log::info("Market data fetched successfully", [
+            Log::info('Market data fetched successfully', [
                 'symbol' => $this->symbol,
                 'timeframe' => $this->timeframe,
                 'close' => $latestCandle['close'],
             ]);
         } catch (\Exception $e) {
-            Log::error("Error fetching market data", [
+            Log::error('Error fetching market data', [
                 'symbol' => $this->symbol,
                 'timeframe' => $this->timeframe,
                 'error' => $e->getMessage(),

@@ -35,17 +35,19 @@ class ExecuteTradeJob implements ShouldQueue
             // Load AI decision
             $aiDecision = AiDecision::find($this->aiDecisionId);
 
-            if (!$aiDecision) {
-                Log::error("AI decision not found", ['id' => $this->aiDecisionId]);
+            if (! $aiDecision) {
+                Log::error('AI decision not found', ['id' => $this->aiDecisionId]);
+
                 return;
             }
 
             if ($aiDecision->executed) {
-                Log::info("AI decision already executed", ['id' => $this->aiDecisionId]);
+                Log::info('AI decision already executed', ['id' => $this->aiDecisionId]);
+
                 return;
             }
 
-            Log::info("Executing trade", [
+            Log::info('Executing trade', [
                 'ai_decision_id' => $this->aiDecisionId,
                 'symbol' => $aiDecision->symbol,
                 'decision' => $aiDecision->decision,
@@ -56,12 +58,12 @@ class ExecuteTradeJob implements ShouldQueue
 
             try {
                 // Final safety checks
-                if (!$riskService->canOpenPosition()) {
-                    throw new \Exception("Cannot open position: max positions reached");
+                if (! $riskService->canOpenPosition()) {
+                    throw new \Exception('Cannot open position: max positions reached');
                 }
 
                 if ($riskService->isDailyLossLimitReached()) {
-                    throw new \Exception("Cannot open position: daily loss limit reached");
+                    throw new \Exception('Cannot open position: daily loss limit reached');
                 }
 
                 // Validate trade parameters
@@ -72,8 +74,8 @@ class ExecuteTradeJob implements ShouldQueue
                     $aiDecision->recommended_leverage ?? 1
                 );
 
-                if (!$validation['valid']) {
-                    throw new \Exception("Trade validation failed: " . implode(', ', $validation['errors']));
+                if (! $validation['valid']) {
+                    throw new \Exception('Trade validation failed: '.implode(', ', $validation['errors']));
                 }
 
                 // Calculate position size
@@ -88,14 +90,14 @@ class ExecuteTradeJob implements ShouldQueue
                 );
 
                 if ($quantity <= 0) {
-                    throw new \Exception("Invalid position size calculated");
+                    throw new \Exception('Invalid position size calculated');
                 }
 
                 // Execute the order on Binance
                 $orderSide = $aiDecision->decision === 'BUY' ? 'BUY' : 'SELL';
                 $tradeSide = $aiDecision->decision === 'BUY' ? 'LONG' : 'SHORT';
 
-                Log::info("Placing order on Binance", [
+                Log::info('Placing order on Binance', [
                     'symbol' => $aiDecision->symbol,
                     'side' => $orderSide,
                     'quantity' => $quantity,
@@ -110,7 +112,7 @@ class ExecuteTradeJob implements ShouldQueue
                 );
 
                 if (isset($orderResult['error'])) {
-                    throw new \Exception("Order failed: " . $orderResult['error']);
+                    throw new \Exception('Order failed: '.$orderResult['error']);
                 }
 
                 // Store trade in database
@@ -133,7 +135,7 @@ class ExecuteTradeJob implements ShouldQueue
 
                 DB::commit();
 
-                Log::info("Trade executed successfully", [
+                Log::info('Trade executed successfully', [
                     'trade_id' => $trade->id,
                     'symbol' => $trade->symbol,
                     'side' => $trade->side,
@@ -151,7 +153,7 @@ class ExecuteTradeJob implements ShouldQueue
                 throw $e;
             }
         } catch (\Exception $e) {
-            Log::error("Error executing trade", [
+            Log::error('Error executing trade', [
                 'ai_decision_id' => $this->aiDecisionId,
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),

@@ -10,7 +10,9 @@ use Illuminate\Support\Facades\Log;
 class BinanceService implements ExchangeInterface
 {
     private string $apiKey;
+
     private string $apiSecret;
+
     private string $baseUrl = 'https://fapi.binance.com'; // Futures API
 
     public function __construct()
@@ -31,9 +33,11 @@ class BinanceService implements ExchangeInterface
             }
 
             Log::error('Failed to get current price', ['symbol' => $symbol, 'response' => $response->body()]);
+
             return 0.0;
         } catch (\Exception $e) {
             Log::error('Exception getting current price', ['symbol' => $symbol, 'error' => $e->getMessage()]);
+
             return 0.0;
         }
     }
@@ -63,9 +67,11 @@ class BinanceService implements ExchangeInterface
             }
 
             Log::error('Failed to get OHLCV', ['symbol' => $symbol, 'response' => $response->body()]);
+
             return [];
         } catch (\Exception $e) {
             Log::error('Exception getting OHLCV', ['symbol' => $symbol, 'error' => $e->getMessage()]);
+
             return [];
         }
     }
@@ -101,9 +107,11 @@ class BinanceService implements ExchangeInterface
             }
 
             Log::error('Failed to place market order', ['params' => $params, 'response' => $response->body()]);
+
             return ['error' => $response->body()];
         } catch (\Exception $e) {
             Log::error('Exception placing market order', ['error' => $e->getMessage()]);
+
             return ['error' => $e->getMessage()];
         }
     }
@@ -118,6 +126,7 @@ class BinanceService implements ExchangeInterface
     {
         // To close a LONG, we SELL. To close a SHORT, we BUY
         $closeSide = $side === 'LONG' ? 'SELL' : 'BUY';
+
         return $this->placeMarketOrder($symbol, $closeSide, $quantity);
     }
 
@@ -156,6 +165,7 @@ class BinanceService implements ExchangeInterface
 
         if (isset($balance['error'])) {
             Log::warning('Failed to get account balance, using default', ['error' => $balance['error']]);
+
             return 10000.0; // Default fallback
         }
 
@@ -167,6 +177,7 @@ class BinanceService implements ExchangeInterface
         }
 
         Log::warning('Asset not found in balance response, using default', ['asset' => $asset]);
+
         return 10000.0; // Default fallback
     }
 
@@ -198,6 +209,7 @@ class BinanceService implements ExchangeInterface
             return [];
         } catch (\Exception $e) {
             Log::error('Exception getting open positions', ['error' => $e->getMessage()]);
+
             return [];
         }
     }
@@ -248,6 +260,7 @@ class BinanceService implements ExchangeInterface
     private function generateSignature(array $params): string
     {
         $queryString = http_build_query($params);
+
         return hash_hmac('sha256', $queryString, $this->apiSecret);
     }
 }

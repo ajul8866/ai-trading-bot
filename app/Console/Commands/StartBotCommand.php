@@ -55,7 +55,7 @@ class StartBotCommand extends Command
             'risk_per_trade',
             'daily_loss_limit',
             'analysis_interval',
-            'min_confidence'
+            'min_confidence',
         ])->get();
 
         foreach ($settings as $setting) {

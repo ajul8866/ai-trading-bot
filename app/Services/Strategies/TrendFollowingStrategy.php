@@ -40,9 +40,13 @@ class TrendFollowingStrategy implements TradingStrategyInterface
 
     // Strategy parameters (can be optimized)
     private int $fastEMA = 12;
+
     private int $slowEMA = 26;
+
     private int $trendEMA = 200;
+
     private float $minADX = 25;
+
     private float $riskRewardRatio = 2.0;
 
     public function __construct(TechnicalIndicatorService $indicatorService)
@@ -204,9 +208,9 @@ class TrendFollowingStrategy implements TradingStrategyInterface
             $high = $ohlcvData[$i]['high'];
             $low = $ohlcvData[$i]['low'];
             $close = $ohlcvData[$i]['close'];
-            $prevHigh = $ohlcvData[$i-1]['high'];
-            $prevLow = $ohlcvData[$i-1]['low'];
-            $prevClose = $ohlcvData[$i-1]['close'];
+            $prevHigh = $ohlcvData[$i - 1]['high'];
+            $prevLow = $ohlcvData[$i - 1]['low'];
+            $prevClose = $ohlcvData[$i - 1]['close'];
 
             // True Range
             $tr = max(
@@ -331,7 +335,7 @@ class TrendFollowingStrategy implements TradingStrategyInterface
     {
         // Check if we have required data
         foreach ($this->getRequiredTimeframes() as $timeframe) {
-            if (!isset($marketData->ohlcvData[$timeframe]) || empty($marketData->ohlcvData[$timeframe])) {
+            if (! isset($marketData->ohlcvData[$timeframe]) || empty($marketData->ohlcvData[$timeframe])) {
                 return false;
             }
         }
