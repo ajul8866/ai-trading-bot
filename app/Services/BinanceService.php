@@ -103,23 +103,75 @@ class BinanceService implements ExchangeInterface
             ])->post("{$this->baseUrl}/fapi/v1/order", $params);
 
             if ($response->successful()) {
-                return $response->json();
+                $data = $response->json();
+
+                return array_merge(['success' => true], $data);
             }
 
             Log::error('Failed to place market order', ['params' => $params, 'response' => $response->body()]);
 
-            return ['error' => $response->body()];
+            return [
+                'success' => false,
+                'error' => $response->body(),
+            ];
         } catch (\Exception $e) {
             Log::error('Exception placing market order', ['error' => $e->getMessage()]);
 
-            return ['error' => $e->getMessage()];
+            return [
+                'success' => false,
+                'error' => $e->getMessage(),
+            ];
         }
     }
 
     public function placeLimitOrder(string $symbol, string $side, float $quantity, float $price, int $leverage = 1): array
     {
-        // Implementation similar to market order
-        return ['error' => 'Not implemented yet'];
+        if (empty($this->apiKey) || empty($this->apiSecret)) {
+            return ['error' => 'API credentials not configured'];
+        }
+
+        try {
+            // Set leverage first
+            $this->setLeverage($symbol, $leverage);
+
+            $timestamp = now()->timestamp * 1000;
+            $params = [
+                'symbol' => $symbol,
+                'side' => $side,
+                'type' => 'LIMIT',
+                'timeInForce' => 'GTC', // Good Till Cancel
+                'quantity' => $quantity,
+                'price' => $price,
+                'timestamp' => $timestamp,
+            ];
+
+            $signature = $this->generateSignature($params);
+            $params['signature'] = $signature;
+
+            $response = Http::withHeaders([
+                'X-MBX-APIKEY' => $this->apiKey,
+            ])->post("{$this->baseUrl}/fapi/v1/order", $params);
+
+            if ($response->successful()) {
+                $data = $response->json();
+
+                return array_merge(['success' => true], $data);
+            }
+
+            Log::error('Failed to place limit order', ['params' => $params, 'response' => $response->body()]);
+
+            return [
+                'success' => false,
+                'error' => $response->body(),
+            ];
+        } catch (\Exception $e) {
+            Log::error('Exception placing limit order', ['error' => $e->getMessage()]);
+
+            return [
+                'success' => false,
+                'error' => $e->getMessage(),
+            ];
+        }
     }
 
     public function closePosition(string $symbol, float $quantity, string $side): array
@@ -216,20 +268,123 @@ class BinanceService implements ExchangeInterface
 
     public function setStopLoss(string $symbol, float $stopPrice, string $side): array
     {
-        // Implementation for stop loss order
-        return ['error' => 'Not implemented yet'];
+        if (empty($this->apiKey) || empty($this->apiSecret)) {
+            return ['error' => 'API credentials not configured'];
+        }
+
+        try {
+            // For stop loss, we use STOP_MARKET order
+            // If we have a LONG position, stop loss is a SELL order below entry
+            // If we have a SHORT position, stop loss is a BUY order above entry
+            $orderSide = $side === 'LONG' ? 'SELL' : 'BUY';
+
+            $timestamp = now()->timestamp * 1000;
+            $params = [
+                'symbol' => $symbol,
+                'side' => $orderSide,
+                'type' => 'STOP_MARKET',
+                'stopPrice' => $stopPrice,
+                'closePosition' => 'true', // Close the entire position
+                'timestamp' => $timestamp,
+            ];
+
+            $signature = $this->generateSignature($params);
+            $params['signature'] = $signature;
+
+            $response = Http::withHeaders([
+                'X-MBX-APIKEY' => $this->apiKey,
+            ])->post("{$this->baseUrl}/fapi/v1/order", $params);
+
+            if ($response->successful()) {
+                return $response->json();
+            }
+
+            Log::error('Failed to set stop loss', ['params' => $params, 'response' => $response->body()]);
+
+            return ['error' => $response->body()];
+        } catch (\Exception $e) {
+            Log::error('Exception setting stop loss', ['error' => $e->getMessage()]);
+
+            return ['error' => $e->getMessage()];
+        }
     }
 
     public function setTakeProfit(string $symbol, float $takeProfitPrice, string $side): array
     {
-        // Implementation for take profit order
-        return ['error' => 'Not implemented yet'];
+        if (empty($this->apiKey) || empty($this->apiSecret)) {
+            return ['error' => 'API credentials not configured'];
+        }
+
+        try {
+            // For take profit, we use TAKE_PROFIT_MARKET order
+            // If we have a LONG position, take profit is a SELL order above entry
+            // If we have a SHORT position, take profit is a BUY order below entry
+            $orderSide = $side === 'LONG' ? 'SELL' : 'BUY';
+
+            $timestamp = now()->timestamp * 1000;
+            $params = [
+                'symbol' => $symbol,
+                'side' => $orderSide,
+                'type' => 'TAKE_PROFIT_MARKET',
+                'stopPrice' => $takeProfitPrice,
+                'closePosition' => 'true', // Close the entire position
+                'timestamp' => $timestamp,
+            ];
+
+            $signature = $this->generateSignature($params);
+            $params['signature'] = $signature;
+
+            $response = Http::withHeaders([
+                'X-MBX-APIKEY' => $this->apiKey,
+            ])->post("{$this->baseUrl}/fapi/v1/order", $params);
+
+            if ($response->successful()) {
+                return $response->json();
+            }
+
+            Log::error('Failed to set take profit', ['params' => $params, 'response' => $response->body()]);
+
+            return ['error' => $response->body()];
+        } catch (\Exception $e) {
+            Log::error('Exception setting take profit', ['error' => $e->getMessage()]);
+
+            return ['error' => $e->getMessage()];
+        }
     }
 
-    public function getOrderStatus(string $orderId): array
+    public function getOrderStatus(string $symbol, string $orderId): array
     {
-        // Implementation for order status
-        return ['error' => 'Not implemented yet'];
+        if (empty($this->apiKey) || empty($this->apiSecret)) {
+            return ['error' => 'API credentials not configured'];
+        }
+
+        try {
+            $timestamp = now()->timestamp * 1000;
+            $params = [
+                'symbol' => $symbol,
+                'orderId' => $orderId,
+                'timestamp' => $timestamp,
+            ];
+
+            $signature = $this->generateSignature($params);
+            $params['signature'] = $signature;
+
+            $response = Http::withHeaders([
+                'X-MBX-APIKEY' => $this->apiKey,
+            ])->get("{$this->baseUrl}/fapi/v1/order", $params);
+
+            if ($response->successful()) {
+                return $response->json();
+            }
+
+            Log::error('Failed to get order status', ['orderId' => $orderId, 'response' => $response->body()]);
+
+            return ['error' => $response->body()];
+        } catch (\Exception $e) {
+            Log::error('Exception getting order status', ['orderId' => $orderId, 'error' => $e->getMessage()]);
+
+            return ['error' => $e->getMessage()];
+        }
     }
 
     private function setLeverage(string $symbol, int $leverage): void

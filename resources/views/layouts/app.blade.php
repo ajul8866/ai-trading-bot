@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="dark">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
-    <title>{{ config('app.name', 'Trading Bot') }} - AI Trading Dashboard</title>
+    <title>{{ config('app.name', 'Trading Bot') }} - Enterprise Trading Terminal</title>
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.bunny.net">
@@ -16,65 +16,91 @@
 
     <!-- Livewire Styles -->
     @livewireStyles
+
+    <style>
+        body {
+            background-color: #030712;
+            background-image:
+                linear-gradient(rgba(59, 130, 246, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(59, 130, 246, 0.03) 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+    </style>
 </head>
-<body class="font-sans antialiased bg-gray-50 dark:bg-gray-900">
+<body class="font-sans antialiased bg-gray-950 text-gray-100">
     <div class="min-h-screen">
-        <!-- Navigation -->
-        <nav class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div class="flex justify-between h-16">
-                    <div class="flex">
-                        <!-- Logo -->
-                        <div class="shrink-0 flex items-center">
-                            <a href="{{ route('dashboard') }}" class="flex items-center">
-                                <svg class="h-8 w-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <!-- Enterprise Navigation Header -->
+        <nav class="bg-gray-900 border-b border-gray-800 sticky top-0 z-50 backdrop-blur-sm bg-opacity-95">
+            <div class="max-w-full px-6">
+                <div class="flex justify-between items-center h-16">
+                    <!-- Logo & Brand -->
+                    <div class="flex items-center gap-8">
+                        <div class="flex items-center">
+                            <div class="relative">
+                                <div class="absolute inset-0 bg-blue-600 blur-lg opacity-30"></div>
+                                <svg class="h-8 w-8 text-blue-500 relative" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
                                 </svg>
-                                <span class="ml-2 text-xl font-bold text-gray-900 dark:text-white">Trading Bot AI</span>
-                            </a>
+                            </div>
+                            <span class="ml-3 text-xl font-bold bg-gradient-to-r from-blue-400 to-blue-600 bg-clip-text text-transparent">
+                                AI Trading Terminal
+                            </span>
                         </div>
 
-                        <!-- Navigation Links -->
-                        <div class="hidden space-x-8 sm:-my-px sm:ml-10 sm:flex">
-                            <a href="{{ route('dashboard') }}" class="inline-flex items-center px-1 pt-1 border-b-2 border-blue-600 text-sm font-medium text-gray-900 dark:text-white">
-                                Dashboard
-                            </a>
+                        <!-- Quick Stats -->
+                        @php
+                            $botEnabled = \App\Models\Setting::where('key', 'bot_enabled')->value('value') === 'true';
+                            $openPositions = \App\Models\Trade::where('status', 'OPEN')->count();
+                            $totalPnl = \App\Models\Trade::where('status', 'CLOSED')->sum('pnl');
+                        @endphp
+                        <div class="hidden lg:flex items-center gap-6 text-sm">
+                            <div class="flex items-center gap-2">
+                                <div class="h-2 w-2 {{ $botEnabled ? 'bg-green-500' : 'bg-red-500' }} rounded-full animate-pulse"></div>
+                                <span class="text-gray-400">Bot:</span>
+                                <span class="font-semibold {{ $botEnabled ? 'text-green-400' : 'text-red-400' }}">
+                                    {{ $botEnabled ? 'ACTIVE' : 'STOPPED' }}
+                                </span>
+                            </div>
+                            <div class="h-4 w-px bg-gray-800"></div>
+                            <div>
+                                <span class="text-gray-400">Positions:</span>
+                                <span class="font-semibold text-white ml-1">{{ $openPositions }}</span>
+                            </div>
+                            <div class="h-4 w-px bg-gray-800"></div>
+                            <div>
+                                <span class="text-gray-400">Total P&L:</span>
+                                <span class="font-semibold ml-1 {{ $totalPnl >= 0 ? 'text-green-400' : 'text-red-400' }}">
+                                    {{ $totalPnl >= 0 ? '+' : '' }}${{ number_format($totalPnl, 2) }}
+                                </span>
+                            </div>
                         </div>
                     </div>
 
-                    <!-- Status Indicator -->
-                    <div class="flex items-center">
-                        <div class="flex items-center mr-4">
-                            <div class="flex items-center">
-                                <div class="h-2 w-2 bg-green-400 rounded-full animate-pulse mr-2"></div>
-                                <span class="text-sm text-gray-700 dark:text-gray-300">System Online</span>
-                            </div>
+                    <!-- Right Side: Time & System Status -->
+                    <div class="flex items-center gap-4">
+                        <div class="text-sm text-gray-400" x-data="{ time: new Date().toLocaleTimeString() }" x-init="setInterval(() => time = new Date().toLocaleTimeString(), 1000)">
+                            <span x-text="time"></span>
+                        </div>
+                        <div class="flex items-center gap-2 px-3 py-1.5 bg-gray-800 rounded-lg">
+                            <div class="h-2 w-2 bg-green-500 rounded-full animate-pulse"></div>
+                            <span class="text-xs text-gray-400">System Online</span>
                         </div>
                     </div>
                 </div>
             </div>
         </nav>
 
-        <!-- Page Heading -->
-        @if (isset($header))
-            <header class="bg-white dark:bg-gray-800 shadow">
-                <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-                    {{ $header }}
-                </div>
-            </header>
-        @endif
-
-        <!-- Page Content -->
-        <main>
+        <!-- Page Content (Full Width, No Padding) -->
+        <main class="min-h-screen">
             {{ $slot }}
         </main>
 
-        <!-- Footer -->
-        <footer class="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 mt-12">
-            <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-                <div class="text-center text-sm text-gray-500 dark:text-gray-400">
-                    <p>&copy; {{ date('Y') }} AI Trading Bot. Built with Laravel {{ app()->version() }} & Livewire.</p>
-                    <p class="mt-1">⚠️ <strong>Warning:</strong> This bot trades with real money. Use at your own risk.</p>
+        <!-- Compact Footer -->
+        <footer class="bg-gray-900 border-t border-gray-800 py-4">
+            <div class="max-w-full px-6">
+                <div class="flex justify-between items-center text-xs text-gray-500">
+                    <p>&copy; {{ date('Y') }} AI Trading Terminal. Laravel {{ app()->version() }} + Livewire</p>
+                    <p class="text-yellow-500">⚠️ <strong>Warning:</strong> Live trading - Real money at risk</p>
                 </div>
             </div>
         </footer>
@@ -82,5 +108,13 @@
 
     <!-- Livewire Scripts -->
     @livewireScripts
+
+    <!-- Auto-refresh components every 3 seconds -->
+    <script>
+        setInterval(() => {
+            Livewire.dispatch('refresh-chart');
+            Livewire.dispatch('refresh-positions');
+        }, 3000);
+    </script>
 </body>
 </html>
