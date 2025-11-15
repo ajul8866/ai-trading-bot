@@ -1149,8 +1149,45 @@ class PatternRecognitionService
 
     private function calculateApexDistance(array $highs, array $lows): int
     {
-        // Simplified calculation
-        return 10; // Placeholder
+        // Calculate where the converging trend lines of a triangle would meet
+        // This is the apex of the triangle pattern
+
+        if (count($highs) < 2 || count($lows) < 2) {
+            return 0;
+        }
+
+        // Find regression lines for highs and lows
+        $n = count($highs);
+
+        // Calculate slope for highs
+        $highSlope = $this->calculateSlope(array_map(fn ($h) => ['high' => $h], $highs));
+
+        // Calculate slope for lows
+        $lowSlope = $this->calculateSlope(array_map(fn ($l) => ['low' => $l], $lows));
+
+        // If lines are parallel or diverging, no apex
+        if (abs($highSlope - $lowSlope) < 0.00001) {
+            return 99; // No convergence (parallel lines)
+        }
+
+        // Get current prices
+        $lastHigh = end($highs);
+        $lastLow = end($lows);
+
+        // Calculate where lines would intersect
+        // For a converging triangle, we estimate candles until apex
+        $priceGap = $lastHigh - $lastLow;
+        $slopeConvergence = abs($highSlope - $lowSlope);
+
+        if ($slopeConvergence == 0) {
+            return 99;
+        }
+
+        // Estimate candles to apex
+        $candlesToApex = (int) round($priceGap / $slopeConvergence);
+
+        // Clamp to reasonable values (1-100 candles)
+        return max(1, min(100, $candlesToApex));
     }
 
     // Candlestick pattern detectors

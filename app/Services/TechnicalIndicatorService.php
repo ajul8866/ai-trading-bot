@@ -40,14 +40,43 @@ class TechnicalIndicatorService
      */
     public function calculateMACD(array $prices, int $fastPeriod = 12, int $slowPeriod = 26, int $signalPeriod = 9): array
     {
-        $emaFast = $this->calculateEMA($prices, $fastPeriod);
-        $emaSlow = $this->calculateEMA($prices, $slowPeriod);
-        $macd = $emaFast - $emaSlow;
+        $length = count($prices);
+
+        // Need at least slow period + signal period data points
+        if ($length < $slowPeriod + $signalPeriod) {
+            return [
+                'macd' => 0,
+                'signal' => 0,
+                'histogram' => 0,
+            ];
+        }
+
+        // Calculate MACD line for each point (to build a series for signal line)
+        $macdLine = [];
+
+        for ($i = $slowPeriod - 1; $i < $length; $i++) {
+            $subset = array_slice($prices, 0, $i + 1);
+            $emaFast = $this->calculateEMA($subset, $fastPeriod);
+            $emaSlow = $this->calculateEMA($subset, $slowPeriod);
+            $macdLine[] = $emaFast - $emaSlow;
+        }
+
+        // Calculate signal line (EMA of MACD line)
+        $signal = 0;
+        if (count($macdLine) >= $signalPeriod) {
+            $signal = $this->calculateEMA($macdLine, $signalPeriod);
+        }
+
+        // Current MACD value
+        $currentMACD = end($macdLine) ?: 0;
+
+        // Histogram is MACD - Signal
+        $histogram = $currentMACD - $signal;
 
         return [
-            'macd' => round($macd, 2),
-            'signal' => 0, // Simplified - would need historical MACD values for proper signal
-            'histogram' => round($macd, 2),
+            'macd' => round($currentMACD, 2),
+            'signal' => round($signal, 2),
+            'histogram' => round($histogram, 2),
         ];
     }
 
