@@ -47,54 +47,89 @@ class NewsPanel extends Component
         $this->loadNews();
     }
 
+    /**
+     * Fetch REAL crypto news from CryptoPanic API
+     * NO FAKE DATA!
+     */
     private function fetchCryptoNews(): array
     {
-        // Simulate fetching news - in production, this would use News API or similar
-        // For now, return sample data structure
-        return [
-            [
-                'title' => 'Bitcoin Reaches New All-Time High',
-                'description' => 'Bitcoin surpasses $100,000 mark as institutional adoption continues to grow.',
-                'source' => 'CoinDesk',
-                'url' => '#',
-                'published_at' => now()->subMinutes(15)->toIso8601String(),
-                'sentiment' => 'positive',
-                'impact' => 'high',
-            ],
-            [
-                'title' => 'Ethereum 2.0 Upgrade Successful',
-                'description' => 'Latest network upgrade shows promising results for scalability.',
-                'source' => 'CoinTelegraph',
-                'url' => '#',
-                'published_at' => now()->subHours(2)->toIso8601String(),
-                'sentiment' => 'positive',
-                'impact' => 'medium',
-            ],
-            [
-                'title' => 'New Regulatory Framework Announced',
-                'description' => 'Government releases comprehensive crypto regulation guidelines.',
-                'source' => 'Bloomberg',
-                'url' => '#',
-                'published_at' => now()->subHours(5)->toIso8601String(),
-                'sentiment' => 'neutral',
-                'impact' => 'high',
-            ],
-        ];
+        $apiKey = env('CRYPTOPANIC_API_KEY');
+
+        if (empty($apiKey)) {
+            \Log::warning('CRYPTOPANIC_API_KEY not configured - news feed will be empty');
+            return [];
+        }
+
+        try {
+            // Fetch from CryptoPanic API - REAL NEWS ONLY!
+            $filter = match ($this->category) {
+                'crypto' => 'currencies',
+                'market' => 'trending',
+                'regulation' => 'news',
+                default => 'all',
+            };
+
+            $response = Http::timeout(10)->get('https://cryptopanic.com/api/v1/posts/', [
+                'auth_token' => $apiKey,
+                'filter' => $filter,
+                'public' => 'true',
+            ]);
+
+            if ($response->successful()) {
+                $data = $response->json();
+                $posts = $data['results'] ?? [];
+
+                return array_map(function ($post) {
+                    // Determine sentiment from votes
+                    $positive = $post['votes']['positive'] ?? 0;
+                    $negative = $post['votes']['negative'] ?? 0;
+                    $total = $positive + $negative;
+
+                    $sentiment = 'neutral';
+                    if ($total > 0) {
+                        $sentimentScore = ($positive - $negative) / $total;
+                        if ($sentimentScore > 0.2) {
+                            $sentiment = 'positive';
+                        } elseif ($sentimentScore < -0.2) {
+                            $sentiment = 'negative';
+                        }
+                    }
+
+                    return [
+                        'title' => $post['title'] ?? 'No title',
+                        'description' => $post['metadata']['description'] ?? '',
+                        'source' => $post['source']['title'] ?? 'Unknown',
+                        'url' => $post['url'] ?? '#',
+                        'published_at' => $post['published_at'] ?? now()->toIso8601String(),
+                        'sentiment' => $sentiment,
+                        'impact' => $post['metadata']['important'] ?? false ? 'high' : 'medium',
+                    ];
+                }, $posts);
+            }
+
+            \Log::error('Failed to fetch CryptoPanic news', [
+                'status' => $response->status(),
+                'body' => $response->body(),
+            ]);
+
+            return [];
+        } catch (\Exception $e) {
+            \Log::error('Exception fetching crypto news from CryptoPanic', [
+                'error' => $e->getMessage(),
+            ]);
+
+            return [];
+        }
     }
 
+    /**
+     * Fallback when API fails - return EMPTY array, NOT FAKE NEWS!
+     */
     private function getFallbackNews(): array
     {
-        return [
-            [
-                'title' => 'Market Update',
-                'description' => 'Crypto markets showing mixed signals today.',
-                'source' => 'Trading Bot',
-                'url' => '#',
-                'published_at' => now()->toIso8601String(),
-                'sentiment' => 'neutral',
-                'impact' => 'low',
-            ],
-        ];
+        // NO FAKE NEWS! Return empty array when API fails
+        \Log::warning('Using fallback news (empty) - CryptoPanic API unavailable');
+        return [];
     }
 
     public function render()

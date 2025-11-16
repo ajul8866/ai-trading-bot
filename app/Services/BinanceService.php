@@ -649,6 +649,106 @@ class BinanceService implements ExchangeInterface
         }
     }
 
+    /**
+     * Get order book depth (REAL DATA - NO FAKE GENERATION)
+     *
+     * @param string $symbol Trading pair symbol
+     * @param int $limit Depth limit (5, 10, 20, 50, 100, 500, 1000)
+     * @return array Order book with bids and asks
+     */
+    public function getDepth(string $symbol, int $limit = 50): array
+    {
+        try {
+            $response = Http::get("{$this->baseUrl}/fapi/v1/depth", [
+                'symbol' => $symbol,
+                'limit' => $limit,
+            ]);
+
+            if ($response->successful()) {
+                $data = $response->json();
+
+                // Transform to consistent format with cumulative depth
+                $bids = [];
+                $bidCumulative = 0;
+                foreach ($data['bids'] ?? [] as $bid) {
+                    $price = (float) $bid[0];
+                    $quantity = (float) $bid[1];
+                    $bidCumulative += $quantity;
+
+                    $bids[] = [
+                        'price' => $price,
+                        'quantity' => $quantity,
+                        'cumulative' => $bidCumulative,
+                    ];
+                }
+
+                $asks = [];
+                $askCumulative = 0;
+                foreach ($data['asks'] ?? [] as $ask) {
+                    $price = (float) $ask[0];
+                    $quantity = (float) $ask[1];
+                    $askCumulative += $quantity;
+
+                    $asks[] = [
+                        'price' => $price,
+                        'quantity' => $quantity,
+                        'cumulative' => $askCumulative,
+                    ];
+                }
+
+                return [
+                    'bids' => $bids,
+                    'asks' => $asks,
+                    'maxBidDepth' => $bidCumulative,
+                    'maxAskDepth' => $askCumulative,
+                ];
+            }
+
+            Log::error('Failed to get depth', ['symbol' => $symbol, 'response' => $response->body()]);
+            throw new \RuntimeException("Failed to get depth for {$symbol}");
+        } catch (\Exception $e) {
+            Log::error('Exception getting depth', ['symbol' => $symbol, 'error' => $e->getMessage()]);
+            throw $e;
+        }
+    }
+
+    /**
+     * Get 24hr ticker statistics (REAL DATA - NO FAKE GENERATION)
+     *
+     * @param string $symbol Trading pair symbol
+     * @return array 24hr ticker data with price change, volume, etc
+     */
+    public function get24hrTicker(string $symbol): array
+    {
+        try {
+            $response = Http::get("{$this->baseUrl}/fapi/v1/ticker/24hr", [
+                'symbol' => $symbol,
+            ]);
+
+            if ($response->successful()) {
+                $data = $response->json();
+
+                return [
+                    'symbol' => $data['symbol'],
+                    'priceChange' => (float) $data['priceChange'],
+                    'priceChangePercent' => (float) $data['priceChangePercent'],
+                    'lastPrice' => (float) $data['lastPrice'],
+                    'volume' => (float) $data['volume'],
+                    'quoteVolume' => (float) $data['quoteVolume'],
+                    'high' => (float) $data['highPrice'],
+                    'low' => (float) $data['lowPrice'],
+                    'openPrice' => (float) $data['openPrice'],
+                ];
+            }
+
+            Log::error('Failed to get 24hr ticker', ['symbol' => $symbol, 'response' => $response->body()]);
+            throw new \RuntimeException("Failed to get 24hr ticker for {$symbol}");
+        } catch (\Exception $e) {
+            Log::error('Exception getting 24hr ticker', ['symbol' => $symbol, 'error' => $e->getMessage()]);
+            throw $e;
+        }
+    }
+
     private function generateSignature(array $params): string
     {
         $queryString = http_build_query($params);

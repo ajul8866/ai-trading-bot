@@ -38,31 +38,27 @@ class OrderBook extends Component
         $orderBookData = Cache::remember($cacheKey, 2, function () {
             try {
                 $binance = app(BinanceService::class);
+
+                // GET REAL ORDER BOOK FROM BINANCE - NO FAKE DATA!
+                $depthData = $binance->getDepth($this->symbol, $this->depth);
                 $currentPrice = $binance->getCurrentPrice($this->symbol);
 
-                // Generate realistic order book data (in production, fetch from Binance WebSocket)
-                $bids = [];
-                $asks = [];
-
-                for ($i = 0; $i < $this->depth; $i++) {
-                    // Bids are below current price
-                    $bidPrice = $currentPrice * (1 - (($i + 1) * 0.0001));
-                    $bidSize = rand(100, 10000) / 100; // Random size between 1 and 100
-                    $bids[] = [
-                        'price' => $bidPrice,
-                        'size' => $bidSize,
-                        'total' => 0, // Will be calculated below
+                // Transform to OrderBook format (with 'size' instead of 'quantity')
+                $bids = array_map(function ($bid) {
+                    return [
+                        'price' => $bid['price'],
+                        'size' => $bid['quantity'],
+                        'total' => 0, // Will be calculated after
                     ];
+                }, $depthData['bids']);
 
-                    // Asks are above current price
-                    $askPrice = $currentPrice * (1 + (($i + 1) * 0.0001));
-                    $askSize = rand(100, 10000) / 100;
-                    $asks[] = [
-                        'price' => $askPrice,
-                        'size' => $askSize,
-                        'total' => 0,
+                $asks = array_map(function ($ask) {
+                    return [
+                        'price' => $ask['price'],
+                        'size' => $ask['quantity'],
+                        'total' => 0, // Will be calculated after
                     ];
-                }
+                }, $depthData['asks']);
 
                 return [
                     'bids' => $bids,

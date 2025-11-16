@@ -145,15 +145,20 @@ class MarketScanner extends Component
 
     private function get24hTicker(BinanceService $binance, string $symbol): array
     {
-        // In production, use actual Binance API call
-        // For now, generate realistic data
-        return [
-            'priceChangePercent' => (rand(-1000, 1000) / 100),
-            'volume' => rand(100000, 10000000),
-            'volumeChangePercent' => (rand(-500, 500) / 100),
-            'high' => 0,
-            'low' => 0,
-        ];
+        // GET REAL 24HR TICKER FROM BINANCE - NO FAKE DATA!
+        try {
+            return $binance->get24hrTicker($symbol);
+        } catch (\Exception $e) {
+            \Log::error("Failed to get 24hr ticker for {$symbol}: " . $e->getMessage());
+            // Return empty data on error, not fake data
+            return [
+                'priceChangePercent' => 0,
+                'volume' => 0,
+                'volumeChangePercent' => 0,
+                'high' => 0,
+                'low' => 0,
+            ];
+        }
     }
 
     private function calculateTechnicalIndicators(TechnicalIndicatorService $service, $historicalData): array
