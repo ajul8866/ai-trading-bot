@@ -47,10 +47,18 @@
                 </h3>
                 <div class="space-y-3">
                     <div class="flex justify-between items-center">
-                        <span class="text-gray-400 text-sm">Wallet Balance</span>
-                        <span class="text-xl font-bold text-white">${{ number_format($accountBalance, 2) }}</span>
+                        <span class="text-gray-400 text-sm font-medium">Total Balance</span>
+                        <span class="text-2xl font-bold text-white">${{ number_format($totalBalance, 2) }}</span>
                     </div>
-                    <div class="flex justify-between items-center">
+                    <div class="flex justify-between items-center text-sm">
+                        <span class="text-gray-500 pl-4">└ Available</span>
+                        <span class="text-gray-300">${{ number_format($availableBalance, 2) }}</span>
+                    </div>
+                    <div class="flex justify-between items-center text-sm">
+                        <span class="text-gray-500 pl-4">└ Used in Margin</span>
+                        <span class="text-orange-400">${{ number_format($usedInMargin, 2) }}</span>
+                    </div>
+                    <div class="flex justify-between items-center border-t border-gray-700 pt-3">
                         <span class="text-gray-400 text-sm">Unrealized P&L</span>
                         <span class="text-lg font-semibold {{ $unrealizedPnl >= 0 ? 'text-green-400' : 'text-red-400' }}">
                             {{ $unrealizedPnl >= 0 ? '+' : '' }}${{ number_format($unrealizedPnl, 2) }}
@@ -59,7 +67,7 @@
                     <div class="border-t border-gray-700 pt-3">
                         <div class="flex justify-between items-center">
                             <span class="text-gray-300 font-medium">Total Equity</span>
-                            <span class="text-2xl font-bold {{ $equity >= $accountBalance ? 'text-green-400' : 'text-red-400' }}">
+                            <span class="text-2xl font-bold {{ $unrealizedPnl >= 0 ? 'text-green-400' : 'text-red-400' }}">
                                 ${{ number_format($equity, 2) }}
                             </span>
                         </div>
