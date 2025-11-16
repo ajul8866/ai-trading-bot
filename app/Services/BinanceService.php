@@ -130,9 +130,14 @@ class BinanceService implements ExchangeInterface
             }
 
             $timestamp = now()->timestamp * 1000;
+
+            // Determine position side for Hedge Mode
+            $positionSide = $side === 'BUY' ? 'LONG' : 'SHORT';
+
             $params = [
                 'symbol' => $symbol,
                 'side' => $side,
+                'positionSide' => $positionSide,
                 'type' => 'MARKET',
                 'quantity' => $quantity,
                 'timestamp' => $timestamp,

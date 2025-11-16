@@ -112,11 +112,14 @@ class ExecuteTradeJob implements ShouldQueue
                 $currentPrice = $binanceService->getCurrentPrice($aiDecision->symbol);
                 $accountBalance = $binanceService->getAccountBalance();
 
+                // Use configured default leverage instead of AI recommendation
+                $leverage = (int) \App\Models\Setting::getValue('default_leverage', 10);
+
                 $quantity = $riskService->calculatePositionSize(
                     $accountBalance,
                     $currentPrice,
                     $aiDecision->recommended_stop_loss,
-                    $aiDecision->recommended_leverage ?? 1
+                    $leverage
                 );
 
                 if ($quantity <= 0) {
@@ -134,14 +137,14 @@ class ExecuteTradeJob implements ShouldQueue
                     'symbol' => $aiDecision->symbol,
                     'side' => $orderSide,
                     'quantity' => $quantity,
-                    'leverage' => $aiDecision->recommended_leverage,
+                    'leverage' => $leverage,
                 ]);
 
                 $orderResult = $binanceService->placeMarketOrder(
                     $aiDecision->symbol,
                     $orderSide,
                     $quantity,
-                    $aiDecision->recommended_leverage ?? 1
+                    $leverage
                 );
 
                 if (isset($orderResult['error'])) {
@@ -154,7 +157,7 @@ class ExecuteTradeJob implements ShouldQueue
                     'side' => $tradeSide,
                     'entry_price' => $currentPrice,
                     'quantity' => $quantity,
-                    'leverage' => $aiDecision->recommended_leverage ?? 1,
+                    'leverage' => $leverage,
                     'stop_loss' => $aiDecision->recommended_stop_loss,
                     'take_profit' => $aiDecision->recommended_take_profit,
                     'status' => 'OPEN',
