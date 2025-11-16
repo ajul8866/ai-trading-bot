@@ -513,7 +513,7 @@ class OrderManagementService
 
         // Check position limits
         $openPositions = Trade::where('status', 'OPEN')->count();
-        $maxPositions = Setting::getValue('max_positions', 5);
+        $maxPositions = (int) Setting::getValue('max_positions', 5);
 
         if ($openPositions >= $maxPositions && in_array($side, ['BUY', 'LONG'])) {
             return [
@@ -524,7 +524,7 @@ class OrderManagementService
 
         // Check daily loss limit
         $dailyPnL = $this->getDailyPnL();
-        $dailyLossLimit = Setting::getValue('daily_loss_limit', 0.1) * $accountBalance;
+        $dailyLossLimit = (float) Setting::getValue('daily_loss_limit', 0.1) * $accountBalance;
 
         if ($dailyPnL < -$dailyLossLimit) {
             return [
@@ -534,7 +534,7 @@ class OrderManagementService
         }
 
         // Check single trade risk limit
-        $riskPercent = Setting::getValue('risk_per_trade', 0.02);
+        $riskPercent = (float) Setting::getValue('risk_per_trade', 0.02);
         $maxRisk = $accountBalance * $riskPercent;
 
         if (isset($params['stop_loss'])) {
@@ -584,6 +584,11 @@ class OrderManagementService
      */
     private function calculateActualSlippage(float $expectedPrice, float $fillPrice, string $side): float
     {
+        // Protect against division by zero
+        if ($expectedPrice <= 0) {
+            return 0;
+        }
+
         if ($side === 'BUY') {
             return ($fillPrice - $expectedPrice) / $expectedPrice;
         } else {
@@ -677,6 +682,11 @@ class OrderManagementService
      */
     private function simulateSlippage(float $quantity, float $marketVolume): float
     {
+        // Protect against division by zero
+        if ($marketVolume <= 0) {
+            return rand(50, 100) / 10000; // Return high slippage for zero volume
+        }
+
         $orderSizeRatio = $quantity / $marketVolume;
 
         // Non-linear slippage model

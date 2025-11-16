@@ -228,7 +228,7 @@ class PortfolioManagementService
 
         // Check daily loss limit
         $dailyPnL = $this->getDailyPnL();
-        $dailyLossLimit = Setting::getValue('daily_loss_limit', 0.1) * $accountBalance;
+        $dailyLossLimit = (float) Setting::getValue('daily_loss_limit', 0.1) * $accountBalance;
         if ($dailyPnL < -$dailyLossLimit) {
             $canOpen = false;
             $reasons[] = 'Daily loss limit reached';
@@ -660,7 +660,7 @@ class PortfolioManagementService
             return 0;
         }
 
-        $initialBalance = Setting::getValue('initial_balance', 10000);
+        $initialBalance = (float) Setting::getValue('initial_balance', 10000);
         $balance = $initialBalance;
         $peak = $balance;
         $maxDrawdown = 0;
@@ -673,8 +673,11 @@ class PortfolioManagementService
                     $peak = $balance;
                 }
 
-                $drawdown = ($peak - $balance) / $peak;
-                $maxDrawdown = max($maxDrawdown, $drawdown);
+                // Protect against division by zero
+                if ($peak > 0) {
+                    $drawdown = ($peak - $balance) / $peak;
+                    $maxDrawdown = max($maxDrawdown, $drawdown);
+                }
             }
         }
 
@@ -692,7 +695,7 @@ class PortfolioManagementService
             return 0;
         }
 
-        $initialBalance = Setting::getValue('initial_balance', 10000);
+        $initialBalance = (float) Setting::getValue('initial_balance', 10000);
         $balance = $initialBalance;
         $peak = $balance;
 
@@ -711,6 +714,11 @@ class PortfolioManagementService
         $currentValue = $balance + $snapshot['unrealized_pnl'];
 
         if ($currentValue > $peak) {
+            return 0;
+        }
+
+        // Protect against division by zero
+        if ($peak <= 0) {
             return 0;
         }
 
@@ -772,7 +780,7 @@ class PortfolioManagementService
 
     private function getAccountBalance(): float
     {
-        return Setting::getValue('account_balance', 10000);
+        return (float) Setting::getValue('account_balance', 10000);
     }
 
     private function getActivePairs(): array
