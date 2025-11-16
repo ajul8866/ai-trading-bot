@@ -142,6 +142,7 @@
                         <label class="block text-sm font-medium text-gray-300 mb-2">AI Model</label>
                         <select wire:model="ai_model"
                                 class="w-full bg-gray-800 border border-gray-600 rounded px-3 py-2 text-white focus:ring-2 focus:ring-blue-500">
+                            <option value="openrouter/sherlock-think-alpha">Sherlock Think Alpha (Current)</option>
                             <option value="anthropic/claude-3.5-sonnet">Claude 3.5 Sonnet (Recommended)</option>
                             <option value="anthropic/claude-3-opus">Claude 3 Opus (Most Capable)</option>
                             <option value="anthropic/claude-3-haiku">Claude 3 Haiku (Fast & Cheap)</option>
