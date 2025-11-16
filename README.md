@@ -163,6 +163,16 @@ sudo supervisorctl status
 
 ## Web Interface
 
+### Screenshots
+
+**Dashboard Overview**
+
+![Dashboard Screenshot 1](Screenshot%202025-11-16%20135941.png)
+
+![Dashboard Screenshot 2](Screenshot%202025-11-16%20140008.png)
+
+### Access
+
 Access the dashboard at your server IP:
 
 | Page | URL | Description |
