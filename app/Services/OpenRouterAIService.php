@@ -48,7 +48,7 @@ class OpenRouterAIService implements AIServiceInterface
                     ],
                 ],
                 'temperature' => 0.7,
-                'max_tokens' => 2000,
+                'max_tokens' => 8000,
             ]);
 
             if ($response->successful()) {
