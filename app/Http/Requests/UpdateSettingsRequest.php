@@ -8,10 +8,23 @@ class UpdateSettingsRequest extends FormRequest
 {
     /**
      * Determine if the user is authorized to make this request.
+     *
+     * SECURITY: Authorization check for settings update
+     * - Validates API key authentication (handled by middleware)
+     * - Additional authorization can be added here based on user roles
      */
     public function authorize(): bool
     {
-        return true; // Add proper authorization logic when authentication is implemented
+        // Authentication is handled by EnsureApiAuthenticated middleware
+        // If request reaches here, it's already authenticated
+
+        // Additional authorization logic can be added:
+        // - Check if user has admin role
+        // - Check IP whitelist
+        // - Check time-based restrictions
+
+        // For now, if authenticated = authorized
+        return true;
     }
 
     /**
