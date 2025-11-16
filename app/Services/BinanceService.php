@@ -373,7 +373,7 @@ class BinanceService implements ExchangeInterface
                 'positionSide' => $positionSide,
                 'type' => 'STOP_MARKET',
                 'stopPrice' => $stopPrice,
-                'closePosition' => true, // Close the entire position
+                'closeposition' => 'true', // Close the entire position (lowercase!)
                 'timestamp' => $timestamp,
             ];
 
@@ -418,7 +418,7 @@ class BinanceService implements ExchangeInterface
                 'positionSide' => $positionSide,
                 'type' => 'TAKE_PROFIT_MARKET',
                 'stopPrice' => $takeProfitPrice,
-                'closePosition' => true, // Close the entire position
+                'closeposition' => 'true', // Close the entire position (lowercase!)
                 'timestamp' => $timestamp,
             ];
 
