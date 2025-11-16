@@ -100,7 +100,8 @@ class ExecuteTradeJob implements ShouldQueue
                     $binanceService->getCurrentPrice($aiDecision->symbol),
                     $aiDecision->recommended_stop_loss,
                     $aiDecision->recommended_take_profit,
-                    $aiDecision->recommended_leverage ?? 1
+                    $aiDecision->recommended_leverage ?? 1,
+                    $aiDecision->decision // Pass the actual decision (BUY/SELL)
                 );
 
                 if (! $validation['valid']) {
@@ -121,6 +122,9 @@ class ExecuteTradeJob implements ShouldQueue
                 if ($quantity <= 0) {
                     throw new \Exception('Invalid position size calculated');
                 }
+
+                // Adjust quantity precision based on symbol
+                $quantity = $this->adjustQuantityPrecision($aiDecision->symbol, $quantity);
 
                 // Execute the order on Binance
                 $orderSide = $aiDecision->decision === 'BUY' ? 'BUY' : 'SELL';
@@ -190,5 +194,34 @@ class ExecuteTradeJob implements ShouldQueue
 
             throw $e;
         }
+    }
+
+    /**
+     * Adjust quantity precision based on symbol requirements
+     */
+    private function adjustQuantityPrecision(string $symbol, float $quantity): float
+    {
+        // Define precision for common symbols (Binance Futures requirements)
+        $precisionMap = [
+            'BTCUSDT' => 3,
+            'ETHUSDT' => 3,
+            'BNBUSDT' => 2,
+            'ADAUSDT' => 0,
+            'SOLUSDT' => 0,
+            'XRPUSDT' => 1,
+            'DOTUSDT' => 1,
+            'DOGEUSDT' => 0,
+            'MATICUSDT' => 0,
+            'LTCUSDT' => 3,
+            'AVAXUSDT' => 1,
+            'LINKUSDT' => 2,
+            'ATOMUSDT' => 2,
+            'NEARUSDT' => 0,
+            'APTUSDT' => 1,
+        ];
+
+        $precision = $precisionMap[$symbol] ?? 3; // Default to 3 decimals
+
+        return round($quantity, $precision);
     }
 }
