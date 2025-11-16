@@ -17,8 +17,8 @@ class BinanceService implements ExchangeInterface
 
     public function __construct()
     {
-        $this->apiKey = Setting::where('key', 'binance_api_key')->value('value') ?? '';
-        $this->apiSecret = Setting::where('key', 'binance_api_secret')->value('value') ?? '';
+        $this->apiKey = Setting::getValue('binance_api_key', '');
+        $this->apiSecret = Setting::getValue('binance_api_secret', '');
     }
 
     public function getCurrentPrice(string $symbol): float
@@ -29,16 +29,17 @@ class BinanceService implements ExchangeInterface
             ]);
 
             if ($response->successful()) {
-                return (float) $response->json('price');
+                $price = (float) $response->json('price');
+                if ($price > 0) {
+                    return $price;
+                }
             }
 
             Log::error('Failed to get current price', ['symbol' => $symbol, 'response' => $response->body()]);
-
-            return 0.0;
+            throw new \RuntimeException("Failed to get current price for {$symbol}");
         } catch (\Exception $e) {
             Log::error('Exception getting current price', ['symbol' => $symbol, 'error' => $e->getMessage()]);
-
-            return 0.0;
+            throw $e;
         }
     }
 
@@ -84,7 +85,12 @@ class BinanceService implements ExchangeInterface
 
         try {
             // Set leverage first
-            $this->setLeverage($symbol, $leverage);
+            if (!$this->setLeverage($symbol, $leverage)) {
+                Log::warning('Failed to set leverage, continuing with current leverage', [
+                    'symbol' => $symbol,
+                    'requested_leverage' => $leverage
+                ]);
+            }
 
             $timestamp = now()->timestamp * 1000;
             $params = [
@@ -132,7 +138,12 @@ class BinanceService implements ExchangeInterface
 
         try {
             // Set leverage first
-            $this->setLeverage($symbol, $leverage);
+            if (!$this->setLeverage($symbol, $leverage)) {
+                Log::warning('Failed to set leverage, continuing with current leverage', [
+                    'symbol' => $symbol,
+                    'requested_leverage' => $leverage
+                ]);
+            }
 
             $timestamp = now()->timestamp * 1000;
             $params = [
@@ -216,9 +227,16 @@ class BinanceService implements ExchangeInterface
         $balance = $this->getBalance();
 
         if (isset($balance['error'])) {
-            Log::warning('Failed to get account balance, using default', ['error' => $balance['error']]);
+            Log::error('Failed to get account balance from API', ['error' => $balance['error']]);
 
-            return 10000.0; // Default fallback
+            // Use configured account balance as fallback
+            $fallbackBalance = (float) Setting::getValue('account_balance', 0);
+            if ($fallbackBalance > 0) {
+                Log::warning('Using configured account_balance setting as fallback', ['balance' => $fallbackBalance]);
+                return $fallbackBalance;
+            }
+
+            throw new \RuntimeException('Cannot get account balance from API and no valid fallback configured');
         }
 
         // Find the asset in the balance array
@@ -228,9 +246,16 @@ class BinanceService implements ExchangeInterface
             }
         }
 
-        Log::warning('Asset not found in balance response, using default', ['asset' => $asset]);
+        Log::error('Asset not found in balance response', ['asset' => $asset, 'available_assets' => array_column($balance, 'asset')]);
 
-        return 10000.0; // Default fallback
+        // Use configured account balance as fallback
+        $fallbackBalance = (float) Setting::getValue('account_balance', 0);
+        if ($fallbackBalance > 0) {
+            Log::warning('Asset not found, using configured account_balance setting as fallback', ['balance' => $fallbackBalance]);
+            return $fallbackBalance;
+        }
+
+        throw new \RuntimeException("Asset {$asset} not found in balance response and no valid fallback configured");
     }
 
     public function getOpenPositions(): array
@@ -387,10 +412,214 @@ class BinanceService implements ExchangeInterface
         }
     }
 
-    private function setLeverage(string $symbol, int $leverage): void
+    public function cancelOrder(string $symbol, string $orderId): array
     {
         if (empty($this->apiKey) || empty($this->apiSecret)) {
-            return;
+            return ['success' => false, 'error' => 'API credentials not configured'];
+        }
+
+        try {
+            $timestamp = now()->timestamp * 1000;
+            $params = [
+                'symbol' => $symbol,
+                'orderId' => $orderId,
+                'timestamp' => $timestamp,
+            ];
+
+            $signature = $this->generateSignature($params);
+            $params['signature'] = $signature;
+
+            $response = Http::withHeaders([
+                'X-MBX-APIKEY' => $this->apiKey,
+            ])->delete("{$this->baseUrl}/fapi/v1/order", $params);
+
+            if ($response->successful()) {
+                return array_merge(['success' => true], $response->json());
+            }
+
+            Log::error('Failed to cancel order', ['orderId' => $orderId, 'response' => $response->body()]);
+
+            return [
+                'success' => false,
+                'error' => $response->body(),
+            ];
+        } catch (\Exception $e) {
+            Log::error('Exception cancelling order', ['orderId' => $orderId, 'error' => $e->getMessage()]);
+
+            return [
+                'success' => false,
+                'error' => $e->getMessage(),
+            ];
+        }
+    }
+
+    public function placeStopMarketOrder(string $symbol, string $side, float $quantity, float $stopPrice, int $leverage = 1): array
+    {
+        if (empty($this->apiKey) || empty($this->apiSecret)) {
+            return ['success' => false, 'error' => 'API credentials not configured'];
+        }
+
+        try {
+            // Set leverage first
+            if (!$this->setLeverage($symbol, $leverage)) {
+                Log::warning('Failed to set leverage, continuing with current leverage', [
+                    'symbol' => $symbol,
+                    'requested_leverage' => $leverage
+                ]);
+            }
+
+            $timestamp = now()->timestamp * 1000;
+            $params = [
+                'symbol' => $symbol,
+                'side' => $side,
+                'type' => 'STOP_MARKET',
+                'quantity' => $quantity,
+                'stopPrice' => $stopPrice,
+                'timestamp' => $timestamp,
+            ];
+
+            $signature = $this->generateSignature($params);
+            $params['signature'] = $signature;
+
+            $response = Http::withHeaders([
+                'X-MBX-APIKEY' => $this->apiKey,
+            ])->post("{$this->baseUrl}/fapi/v1/order", $params);
+
+            if ($response->successful()) {
+                $data = $response->json();
+                return array_merge(['success' => true], $data);
+            }
+
+            Log::error('Failed to place stop market order', ['params' => $params, 'response' => $response->body()]);
+
+            return [
+                'success' => false,
+                'error' => $response->body(),
+            ];
+        } catch (\Exception $e) {
+            Log::error('Exception placing stop market order', ['error' => $e->getMessage()]);
+
+            return [
+                'success' => false,
+                'error' => $e->getMessage(),
+            ];
+        }
+    }
+
+    public function placeStopLimitOrder(string $symbol, string $side, float $quantity, float $stopPrice, float $limitPrice, int $leverage = 1): array
+    {
+        if (empty($this->apiKey) || empty($this->apiSecret)) {
+            return ['success' => false, 'error' => 'API credentials not configured'];
+        }
+
+        try {
+            // Set leverage first
+            if (!$this->setLeverage($symbol, $leverage)) {
+                Log::warning('Failed to set leverage, continuing with current leverage', [
+                    'symbol' => $symbol,
+                    'requested_leverage' => $leverage
+                ]);
+            }
+
+            $timestamp = now()->timestamp * 1000;
+            $params = [
+                'symbol' => $symbol,
+                'side' => $side,
+                'type' => 'STOP',
+                'timeInForce' => 'GTC',
+                'quantity' => $quantity,
+                'price' => $limitPrice,
+                'stopPrice' => $stopPrice,
+                'timestamp' => $timestamp,
+            ];
+
+            $signature = $this->generateSignature($params);
+            $params['signature'] = $signature;
+
+            $response = Http::withHeaders([
+                'X-MBX-APIKEY' => $this->apiKey,
+            ])->post("{$this->baseUrl}/fapi/v1/order", $params);
+
+            if ($response->successful()) {
+                $data = $response->json();
+                return array_merge(['success' => true], $data);
+            }
+
+            Log::error('Failed to place stop limit order', ['params' => $params, 'response' => $response->body()]);
+
+            return [
+                'success' => false,
+                'error' => $response->body(),
+            ];
+        } catch (\Exception $e) {
+            Log::error('Exception placing stop limit order', ['error' => $e->getMessage()]);
+
+            return [
+                'success' => false,
+                'error' => $e->getMessage(),
+            ];
+        }
+    }
+
+    public function placeTrailingStopOrder(string $symbol, string $side, float $quantity, float $activationPrice, float $callbackRate, int $leverage = 1): array
+    {
+        if (empty($this->apiKey) || empty($this->apiSecret)) {
+            return ['success' => false, 'error' => 'API credentials not configured'];
+        }
+
+        try {
+            // Set leverage first
+            if (!$this->setLeverage($symbol, $leverage)) {
+                Log::warning('Failed to set leverage, continuing with current leverage', [
+                    'symbol' => $symbol,
+                    'requested_leverage' => $leverage
+                ]);
+            }
+
+            $timestamp = now()->timestamp * 1000;
+            $params = [
+                'symbol' => $symbol,
+                'side' => $side,
+                'type' => 'TRAILING_STOP_MARKET',
+                'quantity' => $quantity,
+                'activationPrice' => $activationPrice,
+                'callbackRate' => $callbackRate, // 0.1 to 5 (represents %)
+                'timestamp' => $timestamp,
+            ];
+
+            $signature = $this->generateSignature($params);
+            $params['signature'] = $signature;
+
+            $response = Http::withHeaders([
+                'X-MBX-APIKEY' => $this->apiKey,
+            ])->post("{$this->baseUrl}/fapi/v1/order", $params);
+
+            if ($response->successful()) {
+                $data = $response->json();
+                return array_merge(['success' => true], $data);
+            }
+
+            Log::error('Failed to place trailing stop order', ['params' => $params, 'response' => $response->body()]);
+
+            return [
+                'success' => false,
+                'error' => $response->body(),
+            ];
+        } catch (\Exception $e) {
+            Log::error('Exception placing trailing stop order', ['error' => $e->getMessage()]);
+
+            return [
+                'success' => false,
+                'error' => $e->getMessage(),
+            ];
+        }
+    }
+
+    private function setLeverage(string $symbol, int $leverage): bool
+    {
+        if (empty($this->apiKey) || empty($this->apiSecret)) {
+            Log::warning('Cannot set leverage: API credentials not configured');
+            return false;
         }
 
         try {
@@ -404,11 +633,19 @@ class BinanceService implements ExchangeInterface
             $signature = $this->generateSignature($params);
             $params['signature'] = $signature;
 
-            Http::withHeaders([
+            $response = Http::withHeaders([
                 'X-MBX-APIKEY' => $this->apiKey,
             ])->post("{$this->baseUrl}/fapi/v1/leverage", $params);
+
+            if ($response->successful()) {
+                return true;
+            }
+
+            Log::error('Failed to set leverage', ['response' => $response->body()]);
+            return false;
         } catch (\Exception $e) {
             Log::error('Exception setting leverage', ['error' => $e->getMessage()]);
+            return false;
         }
     }
 

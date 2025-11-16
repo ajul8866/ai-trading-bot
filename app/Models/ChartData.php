@@ -19,6 +19,9 @@ class ChartData extends Model
         'low',
         'close',
         'volume',
+        'number_of_trades',
+        'taker_buy_volume',
+        'taker_buy_quote_volume',
     ];
 
     protected function casts(): array
@@ -30,6 +33,9 @@ class ChartData extends Model
             'low' => 'decimal:8',
             'close' => 'decimal:8',
             'volume' => 'decimal:8',
+            'number_of_trades' => 'integer',
+            'taker_buy_volume' => 'decimal:8',
+            'taker_buy_quote_volume' => 'decimal:8',
             'created_at' => 'datetime',
             'updated_at' => 'datetime',
         ];

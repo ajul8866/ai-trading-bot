@@ -33,6 +33,8 @@ class PortfolioManagementService
 {
     private RiskManagementService $riskManagement;
 
+    private BinanceService $binanceService;
+
     // Portfolio limits
     private int $maxConcurrentPositions = 5;
 
@@ -51,9 +53,10 @@ class PortfolioManagementService
 
     private float $maxVaR95 = 0.05; // 5% Value at Risk (95% confidence)
 
-    public function __construct(RiskManagementService $riskManagement)
+    public function __construct(RiskManagementService $riskManagement, BinanceService $binanceService)
     {
         $this->riskManagement = $riskManagement;
+        $this->binanceService = $binanceService;
     }
 
     /**
@@ -225,7 +228,7 @@ class PortfolioManagementService
 
         // Check daily loss limit
         $dailyPnL = $this->getDailyPnL();
-        $dailyLossLimit = Setting::getValue('daily_loss_limit', 0.1) * $accountBalance;
+        $dailyLossLimit = (float) Setting::getValue('daily_loss_limit', 0.1) * $accountBalance;
         if ($dailyPnL < -$dailyLossLimit) {
             $canOpen = false;
             $reasons[] = 'Daily loss limit reached';
@@ -421,16 +424,10 @@ class PortfolioManagementService
     }
 
     /**
-     * Calculate correlation between two trading pairs
+     * Calculate correlation between two trading pairs using REAL historical data
      */
     private function calculatePairCorrelation(string $pair1, string $pair2): float
     {
-        // Get historical price data for both pairs (last 30 days)
-        // This is simplified - in production, you'd fetch actual price data
-
-        // For now, return estimated correlation based on pair similarity
-        // BTC pairs tend to correlate, ETH pairs correlate, etc.
-
         $base1 = $this->extractBaseCurrency($pair1);
         $base2 = $this->extractBaseCurrency($pair2);
 
@@ -438,21 +435,85 @@ class PortfolioManagementService
             return 1.0; // Same pair
         }
 
-        // Major crypto correlations (simplified)
-        $highCorrelation = [
-            ['BTC', 'ETH'] => 0.75,
-            ['BTC', 'BNB'] => 0.70,
-            ['ETH', 'BNB'] => 0.72,
-        ];
+        try {
+            // Fetch REAL historical data (30 days, daily candles)
+            $history1 = $this->binanceService->getOHLCV($pair1, '1d', 30);
+            $history2 = $this->binanceService->getOHLCV($pair2, '1d', 30);
 
-        foreach ($highCorrelation as $pair => $corr) {
-            if (($pair[0] === $base1 && $pair[1] === $base2) || ($pair[0] === $base2 && $pair[1] === $base1)) {
-                return $corr;
+            if (empty($history1) || empty($history2)) {
+                Log::warning('No historical data for correlation calculation', [
+                    'pair1' => $pair1,
+                    'pair2' => $pair2,
+                ]);
+                return 0.5; // Conservative default if no data
             }
+
+            // Extract close prices
+            $prices1 = array_column($history1, 'close');
+            $prices2 = array_column($history2, 'close');
+
+            // Calculate returns
+            $returns1 = [];
+            $returns2 = [];
+
+            $minLength = min(count($prices1), count($prices2));
+
+            for ($i = 1; $i < $minLength; $i++) {
+                if ($prices1[$i-1] > 0) {
+                    $returns1[] = ($prices1[$i] - $prices1[$i-1]) / $prices1[$i-1];
+                }
+                if ($prices2[$i-1] > 0) {
+                    $returns2[] = ($prices2[$i] - $prices2[$i-1]) / $prices2[$i-1];
+                }
+            }
+
+            // Calculate Pearson correlation
+            return $this->calculatePearsonCorrelation($returns1, $returns2);
+
+        } catch (\Exception $e) {
+            Log::error('Error calculating pair correlation', [
+                'pair1' => $pair1,
+                'pair2' => $pair2,
+                'error' => $e->getMessage(),
+            ]);
+            return 0.5; // Conservative default on error
+        }
+    }
+
+    /**
+     * Calculate Pearson correlation coefficient
+     */
+    private function calculatePearsonCorrelation(array $x, array $y): float
+    {
+        $n = min(count($x), count($y));
+
+        if ($n < 2) {
+            return 0;
         }
 
-        // Default low correlation
-        return 0.3;
+        $meanX = array_sum($x) / $n;
+        $meanY = array_sum($y) / $n;
+
+        $numerator = 0;
+        $sumSqX = 0;
+        $sumSqY = 0;
+
+        for ($i = 0; $i < $n; $i++) {
+            $diffX = $x[$i] - $meanX;
+            $diffY = $y[$i] - $meanY;
+
+            $numerator += $diffX * $diffY;
+            $sumSqX += $diffX * $diffX;
+            $sumSqY += $diffY * $diffY;
+        }
+
+        $denominator = sqrt($sumSqX * $sumSqY);
+
+        if ($denominator == 0) {
+            return 0;
+        }
+
+        return $numerator / $denominator;
     }
 
     /**
@@ -657,7 +718,7 @@ class PortfolioManagementService
             return 0;
         }
 
-        $initialBalance = Setting::getValue('initial_balance', 10000);
+        $initialBalance = (float) Setting::getValue('initial_balance', 10000);
         $balance = $initialBalance;
         $peak = $balance;
         $maxDrawdown = 0;
@@ -670,8 +731,11 @@ class PortfolioManagementService
                     $peak = $balance;
                 }
 
-                $drawdown = ($peak - $balance) / $peak;
-                $maxDrawdown = max($maxDrawdown, $drawdown);
+                // Protect against division by zero
+                if ($peak > 0) {
+                    $drawdown = ($peak - $balance) / $peak;
+                    $maxDrawdown = max($maxDrawdown, $drawdown);
+                }
             }
         }
 
@@ -689,7 +753,7 @@ class PortfolioManagementService
             return 0;
         }
 
-        $initialBalance = Setting::getValue('initial_balance', 10000);
+        $initialBalance = (float) Setting::getValue('initial_balance', 10000);
         $balance = $initialBalance;
         $peak = $balance;
 
@@ -711,6 +775,11 @@ class PortfolioManagementService
             return 0;
         }
 
+        // Protect against division by zero
+        if ($peak <= 0) {
+            return 0;
+        }
+
         return ($peak - $currentValue) / $peak;
     }
 
@@ -721,6 +790,11 @@ class PortfolioManagementService
     {
         $returns = [];
         $accountBalance = $this->getAccountBalance();
+
+        // Avoid division by zero
+        if ($accountBalance <= 0) {
+            return $returns;
+        }
 
         foreach ($trades as $trade) {
             if ($trade->status === 'CLOSED' && $trade->pnl !== null) {
@@ -764,7 +838,7 @@ class PortfolioManagementService
 
     private function getAccountBalance(): float
     {
-        return Setting::getValue('account_balance', 10000);
+        return (float) Setting::getValue('account_balance', 10000);
     }
 
     private function getActivePairs(): array
@@ -777,11 +851,8 @@ class PortfolioManagementService
     private function calculateUnrealizedPnL($position): float
     {
         try {
-            // Get BinanceService instance
-            $binanceService = app(BinanceService::class);
-
             // Get current price for the symbol
-            $currentPrice = $binanceService->getCurrentPrice($position->symbol);
+            $currentPrice = $this->binanceService->getCurrentPrice($position->symbol);
 
             if ($currentPrice <= 0) {
                 Log::warning('Invalid current price for unrealized PnL calculation', [
@@ -794,7 +865,7 @@ class PortfolioManagementService
             // Calculate P&L based on position side
             $priceDifference = 0;
 
-            if ($position->side === 'LONG') {
+            if (in_array($position->side, ['LONG', 'BUY'])) {
                 // For LONG: profit when current price > entry price
                 $priceDifference = $currentPrice - $position->entry_price;
             } else {

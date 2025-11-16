@@ -47,11 +47,11 @@ return new class extends Migration
             if (Schema::hasTable('trades')) {
                 DB::statement("
                     INSERT INTO trades_new (id, symbol, side, entry_price, exit_price, quantity, leverage,
-                                           stop_loss, take_profit, status, pnl, pnl_percentage, binance_order_id,
-                                           ai_decision_id, opened_at, closed_at, created_at, updated_at)
+                                           margin, order_type, stop_loss, take_profit, status, pnl, pnl_percentage,
+                                           binance_order_id, ai_decision_id, opened_at, closed_at, created_at, updated_at)
                     SELECT id, symbol, side, entry_price, exit_price, quantity, leverage,
-                           stop_loss, take_profit, status, pnl, pnl_percentage, binance_order_id,
-                           ai_decision_id, opened_at, closed_at, created_at, updated_at
+                           margin, order_type, stop_loss, take_profit, status, pnl, pnl_percentage,
+                           binance_order_id, ai_decision_id, opened_at, closed_at, created_at, updated_at
                     FROM trades
                 ");
 

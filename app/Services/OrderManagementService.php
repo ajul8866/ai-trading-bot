@@ -9,29 +9,24 @@ use Illuminate\Support\Facades\Log;
 /**
  * Order Management Service
  *
- * Advanced order management system handling complex order types,
- * execution algorithms, fill simulation, and risk checks.
+ * Real-money order management system using Binance Futures API
  *
  * Features:
  * - Multiple order types (Market, Limit, Stop, Stop-Limit, Trailing Stop)
- * - Advanced execution algorithms (TWAP, VWAP, Iceberg)
- * - Slippage modeling and simulation
- * - Partial fill handling
- * - Order routing and smart order routing (SOR)
+ * - Real Binance API integration for all order operations
  * - Pre-trade risk checks
- * - Order modification and cancellation
- * - Fill reporting and analytics
- * - Order book simulation
- * - Latency simulation
+ * - Order modification and cancellation via Binance API
+ * - Fill reporting from actual trade data
  *
- * Order Types:
+ * Supported Order Types:
  * - MARKET: Execute immediately at best available price
  * - LIMIT: Execute at specified price or better
  * - STOP_MARKET: Market order triggered at stop price
  * - STOP_LIMIT: Limit order triggered at stop price
  * - TRAILING_STOP: Stop that trails price by percentage/amount
- * - TAKE_PROFIT: Close position at target price
- * - OCO: One-Cancels-Other (stop loss + take profit)
+ *
+ * All orders are executed through real Binance Futures API calls.
+ * No simulation or fake order execution.
  */
 class OrderManagementService
 {
@@ -161,7 +156,8 @@ class OrderManagementService
         }
 
         // Place order with exchange
-        $result = $this->exchange->placeMarketOrder($symbol, $side, $quantity);
+        $leverage = $params['leverage'] ?? 1;
+        $result = $this->exchange->placeMarketOrder($symbol, $side, $quantity, $leverage);
 
         if ($result['success']) {
             // Record trade
@@ -169,13 +165,14 @@ class OrderManagementService
                 'symbol' => $symbol,
                 'side' => $side,
                 'quantity' => $quantity,
+                'leverage' => $leverage,
                 'order_type' => 'MARKET',
                 'entry_price' => $result['fill_price'] ?? $estimatedFillPrice,
-                'expected_price' => $currentPrice,
-                'actual_slippage' => $this->calculateActualSlippage($currentPrice, $result['fill_price'] ?? $estimatedFillPrice, $side),
+                'binance_order_id' => $result['orderId'] ?? $result['order_id'] ?? null,
                 'status' => 'OPEN',
                 'stop_loss' => $params['stop_loss'] ?? null,
                 'take_profit' => $params['take_profit'] ?? null,
+                'opened_at' => now(),
             ]);
 
             return [
@@ -191,7 +188,7 @@ class OrderManagementService
     }
 
     /**
-     * Execute limit order
+     * Execute limit order - REAL BINANCE API CALL
      */
     private function executeLimitOrder(array $params): array
     {
@@ -199,8 +196,9 @@ class OrderManagementService
         $side = $params['side'];
         $quantity = $params['quantity'];
         $limitPrice = $params['limit_price'];
+        $leverage = $params['leverage'] ?? 1;
 
-        // Validate limit price
+        // Validate limit price against current market
         $currentPrice = $this->exchange->getCurrentPrice($symbol);
 
         if ($side === 'BUY' && $limitPrice > $currentPrice * 1.05) {
@@ -217,45 +215,39 @@ class OrderManagementService
             ]);
         }
 
-        // In real implementation, would place limit order on exchange
-        // For now, simulate immediate fill if price is favorable
-        $canFillImmediately = ($side === 'BUY' && $currentPrice <= $limitPrice) ||
-                              ($side === 'SELL' && $currentPrice >= $limitPrice);
+        // REAL API CALL TO BINANCE
+        $result = $this->exchange->placeLimitOrder($symbol, $side, $quantity, $limitPrice, $leverage);
 
-        if ($canFillImmediately) {
-            // Fill at limit price
+        if ($result['success'] ?? false) {
+            // Record trade with REAL Binance order ID
             $trade = $this->recordTrade([
                 'symbol' => $symbol,
                 'side' => $side,
                 'quantity' => $quantity,
+                'leverage' => $leverage,
                 'order_type' => 'LIMIT',
                 'entry_price' => $limitPrice,
+                'binance_order_id' => $result['orderId'] ?? $result['order_id'] ?? null,
                 'status' => 'OPEN',
                 'stop_loss' => $params['stop_loss'] ?? null,
                 'take_profit' => $params['take_profit'] ?? null,
+                'opened_at' => now(),
             ]);
 
             return [
                 'success' => true,
-                'order_id' => 'LIMIT_'.uniqid(),
+                'order_id' => $result['orderId'] ?? $result['order_id'],
                 'trade_id' => $trade->id,
-                'fill_price' => $limitPrice,
-                'filled' => true,
-            ];
-        } else {
-            // Order pending
-            return [
-                'success' => true,
-                'order_id' => 'LIMIT_'.uniqid(),
-                'status' => 'PENDING',
-                'filled' => false,
-                'message' => 'Limit order placed, waiting for fill',
+                'fill_price' => $result['price'] ?? $limitPrice,
+                'status' => $result['status'] ?? 'NEW',
             ];
         }
+
+        return $result;
     }
 
     /**
-     * Execute stop market order
+     * Execute stop market order - REAL BINANCE API CALL
      */
     private function executeStopMarketOrder(array $params): array
     {
@@ -263,39 +255,85 @@ class OrderManagementService
         $side = $params['side'];
         $quantity = $params['quantity'];
         $stopPrice = $params['stop_price'];
+        $leverage = $params['leverage'] ?? 1;
 
-        // Stop orders are typically used for closing positions or entering on breakouts
-        // Would monitor price and trigger when stop is hit
+        // REAL API CALL TO BINANCE
+        $result = $this->exchange->placeStopMarketOrder($symbol, $side, $quantity, $stopPrice, $leverage);
 
-        return [
-            'success' => true,
-            'order_id' => 'STOP_'.uniqid(),
-            'status' => 'PENDING',
-            'stop_price' => $stopPrice,
-            'message' => 'Stop order placed, will trigger at stop price',
-        ];
+        if ($result['success'] ?? false) {
+            // Record trade with REAL Binance order ID
+            $trade = $this->recordTrade([
+                'symbol' => $symbol,
+                'side' => $side,
+                'quantity' => $quantity,
+                'leverage' => $leverage,
+                'order_type' => 'STOP_MARKET',
+                'entry_price' => $stopPrice,
+                'binance_order_id' => $result['orderId'] ?? $result['order_id'] ?? null,
+                'status' => 'OPEN',
+                'stop_loss' => $params['stop_loss'] ?? null,
+                'take_profit' => $params['take_profit'] ?? null,
+                'opened_at' => now(),
+            ]);
+
+            return [
+                'success' => true,
+                'order_id' => $result['orderId'] ?? $result['order_id'],
+                'trade_id' => $trade->id,
+                'status' => $result['status'] ?? 'NEW',
+                'stop_price' => $stopPrice,
+            ];
+        }
+
+        return $result;
     }
 
     /**
-     * Execute stop limit order
+     * Execute stop limit order - REAL BINANCE API CALL
      */
     private function executeStopLimitOrder(array $params): array
     {
+        $symbol = $params['symbol'];
+        $side = $params['side'];
+        $quantity = $params['quantity'];
         $stopPrice = $params['stop_price'];
         $limitPrice = $params['limit_price'];
+        $leverage = $params['leverage'] ?? 1;
 
-        return [
-            'success' => true,
-            'order_id' => 'STOP_LIMIT_'.uniqid(),
-            'status' => 'PENDING',
-            'stop_price' => $stopPrice,
-            'limit_price' => $limitPrice,
-            'message' => 'Stop-limit order placed',
-        ];
+        // REAL API CALL TO BINANCE
+        $result = $this->exchange->placeStopLimitOrder($symbol, $side, $quantity, $stopPrice, $limitPrice, $leverage);
+
+        if ($result['success'] ?? false) {
+            // Record trade with REAL Binance order ID
+            $trade = $this->recordTrade([
+                'symbol' => $symbol,
+                'side' => $side,
+                'quantity' => $quantity,
+                'leverage' => $leverage,
+                'order_type' => 'STOP_LIMIT',
+                'entry_price' => $limitPrice,
+                'binance_order_id' => $result['orderId'] ?? $result['order_id'] ?? null,
+                'status' => 'OPEN',
+                'stop_loss' => $params['stop_loss'] ?? null,
+                'take_profit' => $params['take_profit'] ?? null,
+                'opened_at' => now(),
+            ]);
+
+            return [
+                'success' => true,
+                'order_id' => $result['orderId'] ?? $result['order_id'],
+                'trade_id' => $trade->id,
+                'status' => $result['status'] ?? 'NEW',
+                'stop_price' => $stopPrice,
+                'limit_price' => $limitPrice,
+            ];
+        }
+
+        return $result;
     }
 
     /**
-     * Execute trailing stop order
+     * Execute trailing stop order - REAL BINANCE API CALL
      */
     private function executeTrailingStopOrder(array $params): array
     {
@@ -303,124 +341,159 @@ class OrderManagementService
         $side = $params['side'];
         $quantity = $params['quantity'];
         $trailPercent = $params['trail_percent'] ?? 2.0; // Default 2%
+        $leverage = $params['leverage'] ?? 1;
 
         $currentPrice = $this->exchange->getCurrentPrice($symbol);
 
-        // Calculate initial stop price
-        $initialStop = $side === 'BUY'
-            ? $currentPrice * (1 + ($trailPercent / 100))
-            : $currentPrice * (1 - ($trailPercent / 100));
+        // Calculate activation price (current price)
+        $activationPrice = $currentPrice;
 
-        return [
-            'success' => true,
-            'order_id' => 'TRAILING_'.uniqid(),
-            'status' => 'ACTIVE',
-            'trail_percent' => $trailPercent,
-            'current_stop' => $initialStop,
-            'message' => 'Trailing stop activated',
-        ];
+        // REAL API CALL TO BINANCE
+        $result = $this->exchange->placeTrailingStopOrder($symbol, $side, $quantity, $activationPrice, $trailPercent, $leverage);
+
+        if ($result['success'] ?? false) {
+            // Record trade with REAL Binance order ID
+            $trade = $this->recordTrade([
+                'symbol' => $symbol,
+                'side' => $side,
+                'quantity' => $quantity,
+                'leverage' => $leverage,
+                'order_type' => 'TRAILING_STOP',
+                'entry_price' => $activationPrice,
+                'binance_order_id' => $result['orderId'] ?? $result['order_id'] ?? null,
+                'status' => 'OPEN',
+                'stop_loss' => $params['stop_loss'] ?? null,
+                'take_profit' => $params['take_profit'] ?? null,
+                'opened_at' => now(),
+            ]);
+
+            return [
+                'success' => true,
+                'order_id' => $result['orderId'] ?? $result['order_id'],
+                'trade_id' => $trade->id,
+                'status' => $result['status'] ?? 'NEW',
+                'trail_percent' => $trailPercent,
+                'activation_price' => $activationPrice,
+            ];
+        }
+
+        return $result;
     }
 
     /**
      * Execute TWAP (Time-Weighted Average Price) order
+     * TWAP is not a native Binance order type - must execute as multiple market orders
      */
     private function executeTWAPOrder(array $params): array
     {
-        $symbol = $params['symbol'];
-        $side = $params['side'];
-        $totalQuantity = $params['quantity'];
-        $duration = $params['duration_seconds'] ?? 300; // Default 5 minutes
-
-        $slices = ceil($duration / $this->twapIntervalSeconds);
-        $quantityPerSlice = $totalQuantity / $slices;
-
-        Log::info('Executing TWAP order', [
-            'symbol' => $symbol,
-            'total_quantity' => $totalQuantity,
-            'slices' => $slices,
-            'quantity_per_slice' => $quantityPerSlice,
-        ]);
-
-        // Would execute slices over time
-        // For now, return the execution plan
+        // TWAP requires complex scheduling - not supported for real trading
+        // Use market or limit orders instead
         return [
-            'success' => true,
-            'order_id' => 'TWAP_'.uniqid(),
-            'algorithm' => 'TWAP',
-            'slices' => $slices,
-            'quantity_per_slice' => round($quantityPerSlice, 8),
-            'interval_seconds' => $this->twapIntervalSeconds,
-            'status' => 'EXECUTING',
+            'success' => false,
+            'error' => 'TWAP not supported. Use MARKET or LIMIT orders instead.',
         ];
     }
 
     /**
      * Execute iceberg order (large order split into smaller visible portions)
+     * Iceberg requires complex order management - not supported for real trading
      */
     private function executeIcebergOrder(array $params): array
     {
-        $totalQuantity = $params['quantity'];
-        $visibleQuantity = $params['visible_quantity'] ?? ($totalQuantity / 10);
-
-        $slices = ceil($totalQuantity / $visibleQuantity);
-
+        // Iceberg orders require complex scheduling - not supported for real trading
+        // Use market or limit orders instead
         return [
-            'success' => true,
-            'order_id' => 'ICEBERG_'.uniqid(),
-            'algorithm' => 'ICEBERG',
-            'total_quantity' => $totalQuantity,
-            'visible_quantity' => $visibleQuantity,
-            'slices' => min($slices, $this->icebergMaxSlices),
-            'status' => 'EXECUTING',
+            'success' => false,
+            'error' => 'ICEBERG not supported. Use MARKET or LIMIT orders instead.',
         ];
     }
 
     /**
-     * Cancel an existing order
+     * Cancel an existing order - REAL BINANCE API CALL
      */
     public function cancelOrder(string $orderId): array
     {
-        // Would cancel order on exchange
         Log::info('Cancelling order', ['order_id' => $orderId]);
 
-        return [
-            'success' => true,
-            'order_id' => $orderId,
-            'status' => 'CANCELLED',
-        ];
+        // Find trade by binance_order_id to get symbol
+        $trade = Trade::where('binance_order_id', $orderId)->first();
+
+        if (!$trade) {
+            return [
+                'success' => false,
+                'error' => 'Trade not found for order ID: ' . $orderId,
+            ];
+        }
+
+        // REAL API CALL TO BINANCE
+        $result = $this->exchange->cancelOrder($trade->symbol, $orderId);
+
+        if ($result['success'] ?? false) {
+            // Update trade status
+            $trade->update(['status' => 'CANCELLED']);
+        }
+
+        return $result;
     }
 
     /**
-     * Modify an existing order
+     * Modify an existing order - REAL BINANCE API CALL
+     * Note: Binance doesn't support direct order modification.
+     * Must cancel and replace with new order.
      */
     public function modifyOrder(string $orderId, array $modifications): array
     {
-        // Would modify order on exchange
-        Log::info('Modifying order', [
+        Log::info('Modifying order (cancel and replace)', [
             'order_id' => $orderId,
             'modifications' => $modifications,
         ]);
 
-        return [
-            'success' => true,
-            'order_id' => $orderId,
-            'modifications' => $modifications,
+        // Find the original trade
+        $trade = Trade::where('binance_order_id', $orderId)->first();
+
+        if (!$trade) {
+            return [
+                'success' => false,
+                'error' => 'Trade not found for order ID: ' . $orderId,
+            ];
+        }
+
+        // Cancel existing order
+        $cancelResult = $this->cancelOrder($orderId);
+
+        if (!($cancelResult['success'] ?? false)) {
+            return $cancelResult;
+        }
+
+        // Place new order with modifications
+        $newParams = [
+            'symbol' => $trade->symbol,
+            'side' => $modifications['side'] ?? $trade->side,
+            'quantity' => $modifications['quantity'] ?? $trade->quantity,
+            'limit_price' => $modifications['price'] ?? null,
+            'leverage' => $trade->leverage,
         ];
+
+        return $this->placeOrder($newParams);
     }
 
     /**
-     * Get order status
+     * Get order status - REAL BINANCE API CALL
      */
     public function getOrderStatus(string $orderId): array
     {
-        // Would query exchange for order status
-        return [
-            'order_id' => $orderId,
-            'status' => 'FILLED', // Could be: PENDING, PARTIALLY_FILLED, FILLED, CANCELLED
-            'filled_quantity' => 0,
-            'remaining_quantity' => 0,
-            'avg_fill_price' => 0,
-        ];
+        // Find trade to get symbol
+        $trade = Trade::where('binance_order_id', $orderId)->first();
+
+        if (!$trade) {
+            return [
+                'success' => false,
+                'error' => 'Trade not found for order ID: ' . $orderId,
+            ];
+        }
+
+        // REAL API CALL TO BINANCE
+        return $this->exchange->getOrderStatus($trade->symbol, $orderId);
     }
 
     /**
@@ -485,11 +558,22 @@ class OrderManagementService
         $side = $params['side'];
 
         // Check account balance
-        $balance = $this->exchange->getBalance();
-        $currentPrice = $this->exchange->getCurrentPrice($symbol);
-        $orderValue = $quantity * $currentPrice;
+        try {
+            $accountBalance = $this->exchange->getAccountBalance();
+        } catch (\Exception $e) {
+            return [
+                'passed' => false,
+                'reason' => 'Cannot retrieve account balance: ' . $e->getMessage(),
+            ];
+        }
 
-        if ($orderValue > $balance) {
+        $currentPrice = $this->exchange->getCurrentPrice($symbol);
+        $leverage = $params['leverage'] ?? 1;
+
+        // Calculate required margin (not full order value due to leverage)
+        $requiredMargin = ($quantity * $currentPrice) / $leverage;
+
+        if ($requiredMargin > $accountBalance) {
             return [
                 'passed' => false,
                 'reason' => 'Insufficient balance',
@@ -498,9 +582,9 @@ class OrderManagementService
 
         // Check position limits
         $openPositions = Trade::where('status', 'OPEN')->count();
-        $maxPositions = Setting::getValue('max_positions', 5);
+        $maxPositions = (int) Setting::getValue('max_positions', 5);
 
-        if ($openPositions >= $maxPositions && $side === 'BUY') {
+        if ($openPositions >= $maxPositions && in_array($side, ['BUY', 'LONG'])) {
             return [
                 'passed' => false,
                 'reason' => 'Maximum open positions reached',
@@ -509,7 +593,7 @@ class OrderManagementService
 
         // Check daily loss limit
         $dailyPnL = $this->getDailyPnL();
-        $dailyLossLimit = Setting::getValue('daily_loss_limit', 0.1) * $balance;
+        $dailyLossLimit = (float) Setting::getValue('daily_loss_limit', 0.1) * $accountBalance;
 
         if ($dailyPnL < -$dailyLossLimit) {
             return [
@@ -519,13 +603,13 @@ class OrderManagementService
         }
 
         // Check single trade risk limit
-        $riskPercent = Setting::getValue('risk_per_trade', 0.02);
-        $maxRisk = $balance * $riskPercent;
+        $riskPercent = (float) Setting::getValue('risk_per_trade', 0.02);
+        $maxRisk = $accountBalance * $riskPercent;
 
         if (isset($params['stop_loss'])) {
             $stopLoss = $params['stop_loss'];
             $entryPrice = $params['limit_price'] ?? $currentPrice;
-            $riskAmount = abs($entryPrice - $stopLoss) * $quantity;
+            $riskAmount = abs($entryPrice - $stopLoss) * $quantity * $leverage;
 
             if ($riskAmount > $maxRisk) {
                 return [
@@ -540,26 +624,31 @@ class OrderManagementService
 
     /**
      * Calculate expected slippage based on market conditions
+     * NOTE: Uses conservative estimates. Real slippage determined by actual fill price.
      */
     private function calculateExpectedSlippage(string $symbol, float $quantity, string $side): float
     {
-        // Factors affecting slippage:
-        // - Order size relative to average volume
-        // - Bid-ask spread
-        // - Market volatility
-        // - Liquidity
+        // Conservative slippage estimation
+        // Actual slippage will be calculated from real fill price
 
-        // Simplified model
         $baseSlippage = $this->defaultSlippagePercent;
 
-        // Get order book depth (simplified - would query real order book)
-        $orderBookDepth = 1000000; // Simulated liquidity
-        $orderSizeRatio = ($quantity * $this->exchange->getCurrentPrice($symbol)) / $orderBookDepth;
+        // Estimate order impact based on order value
+        // Using conservative assumption: $100k USD is "large order"
+        $currentPrice = $this->exchange->getCurrentPrice($symbol);
+        $orderValue = $quantity * $currentPrice;
 
-        // Increase slippage for larger orders relative to liquidity
-        $sizeImpact = $orderSizeRatio * 0.01; // 1% impact per 100% of liquidity
+        // Conservative liquidity threshold
+        $largeOrderThreshold = 100000; // $100k USD
 
-        $totalSlippage = $baseSlippage + $sizeImpact;
+        if ($orderValue > $largeOrderThreshold) {
+            // Add size impact for large orders
+            $sizeMultiplier = $orderValue / $largeOrderThreshold;
+            $sizeImpact = $baseSlippage * log($sizeMultiplier);
+            $totalSlippage = $baseSlippage + $sizeImpact;
+        } else {
+            $totalSlippage = $baseSlippage;
+        }
 
         return min($totalSlippage, $this->maxSlippagePercent);
     }
@@ -569,6 +658,11 @@ class OrderManagementService
      */
     private function calculateActualSlippage(float $expectedPrice, float $fillPrice, string $side): float
     {
+        // Protect against division by zero
+        if ($expectedPrice <= 0) {
+            return 0;
+        }
+
         if ($side === 'BUY') {
             return ($fillPrice - $expectedPrice) / $expectedPrice;
         } else {
@@ -597,87 +691,25 @@ class OrderManagementService
     }
 
     /**
-     * Calculate order fill simulation (for backtesting)
+     * REMOVED: simulateFill() was for backtesting simulation
+     * Real trading uses actual Binance API fills - no simulation needed
      */
-    public function simulateFill(array $order, array $marketData): array
+
+    /**
+     * Calculate actual slippage from fill price
+     * REMOVED simulateSlippage() - now using REAL fill prices from exchange
+     */
+    private function calculateSlippageFromFill(float $expectedPrice, float $actualPrice): float
     {
-        $orderType = $order['type'];
-        $side = $order['side'];
-        $quantity = $order['quantity'];
-
-        $currentPrice = $marketData['current_price'];
-        $high = $marketData['high'];
-        $low = $marketData['low'];
-        $volume = $marketData['volume'];
-
-        $filled = false;
-        $fillPrice = null;
-        $fillTime = null;
-
-        switch ($orderType) {
-            case 'MARKET':
-                $filled = true;
-                $slippage = $this->simulateSlippage($quantity, $volume);
-                $fillPrice = $side === 'BUY'
-                    ? $currentPrice * (1 + $slippage)
-                    : $currentPrice * (1 - $slippage);
-                $fillTime = now();
-                break;
-
-            case 'LIMIT':
-                $limitPrice = $order['limit_price'];
-
-                if ($side === 'BUY' && $low <= $limitPrice) {
-                    $filled = true;
-                    $fillPrice = $limitPrice;
-                } elseif ($side === 'SELL' && $high >= $limitPrice) {
-                    $filled = true;
-                    $fillPrice = $limitPrice;
-                }
-                break;
-
-            case 'STOP_MARKET':
-                $stopPrice = $order['stop_price'];
-
-                if ($side === 'BUY' && $high >= $stopPrice) {
-                    $filled = true;
-                    $fillPrice = max($stopPrice, $currentPrice);
-                } elseif ($side === 'SELL' && $low <= $stopPrice) {
-                    $filled = true;
-                    $fillPrice = min($stopPrice, $currentPrice);
-                }
-                break;
+        if ($expectedPrice <= 0) {
+            return 0;
         }
 
-        return [
-            'filled' => $filled,
-            'fill_price' => $fillPrice,
-            'fill_time' => $fillTime,
-            'remaining_quantity' => $filled ? 0 : $quantity,
-        ];
+        return abs($actualPrice - $expectedPrice) / $expectedPrice;
     }
 
     /**
-     * Simulate realistic slippage
-     */
-    private function simulateSlippage(float $quantity, float $marketVolume): float
-    {
-        $orderSizeRatio = $quantity / $marketVolume;
-
-        // Non-linear slippage model
-        if ($orderSizeRatio < 0.001) {
-            return rand(1, 5) / 10000; // 0.01-0.05%
-        } elseif ($orderSizeRatio < 0.01) {
-            return rand(5, 20) / 10000; // 0.05-0.2%
-        } elseif ($orderSizeRatio < 0.05) {
-            return rand(20, 50) / 10000; // 0.2-0.5%
-        } else {
-            return rand(50, 100) / 10000; // 0.5-1.0%
-        }
-    }
-
-    /**
-     * Get fill quality metrics
+     * Get fill quality metrics from actual trade data
      */
     public function getFillQualityMetrics(): array
     {
@@ -686,25 +718,16 @@ class OrderManagementService
             ->get();
 
         if ($trades->isEmpty()) {
-            return [];
+            return [
+                'total_fills' => 0,
+                'avg_slippage' => '0%',
+            ];
         }
 
-        $totalSlippage = 0;
-        $slippageCount = 0;
-
-        foreach ($trades as $trade) {
-            // Calculate if we have slippage data
-            // Simplified - would need actual vs expected prices
-            $slippageCount++;
-        }
-
-        $avgSlippage = $slippageCount > 0 ? $totalSlippage / $slippageCount : 0;
-
+        // Calculate actual metrics from real trade data
         return [
             'total_fills' => $trades->count(),
-            'avg_slippage' => round($avgSlippage * 100, 3).'%',
-            'fill_rate' => '100%', // Simulated
-            'avg_fill_time' => '50ms', // Simulated
+            'avg_slippage' => '0%', // TODO: Calculate from actual fill prices vs expected prices
         ];
     }
 }

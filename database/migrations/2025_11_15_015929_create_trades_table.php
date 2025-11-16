@@ -19,6 +19,8 @@ return new class extends Migration
             $table->decimal('exit_price', 20, 8)->nullable();
             $table->decimal('quantity', 20, 8);
             $table->integer('leverage')->default(1);
+            $table->decimal('margin', 20, 8)->nullable(); // Margin used for position
+            $table->string('order_type')->nullable(); // MARKET, LIMIT, STOP_MARKET, etc.
             $table->decimal('stop_loss', 20, 8)->nullable();
             $table->decimal('take_profit', 20, 8)->nullable();
             $table->enum('status', ['OPEN', 'CLOSED', 'CANCELLED'])->default('OPEN');
