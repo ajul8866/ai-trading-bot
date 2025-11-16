@@ -262,11 +262,11 @@ class ExecuteTradeJob implements ShouldQueue
             'DOGEUSDT' => 0,
             'MATICUSDT' => 0,
             'LTCUSDT' => 3,
-            'AVAXUSDT' => 1,
+            'AVAXUSDT' => 0,  // Changed from 1 to 0
             'LINKUSDT' => 2,
             'ATOMUSDT' => 2,
             'NEARUSDT' => 0,
-            'APTUSDT' => 1,
+            'APTUSDT' => 2,   // Changed from 1 to 2
         ];
 
         $precision = $precisionMap[$symbol] ?? 3; // Default to 3 decimals

@@ -63,7 +63,8 @@ class RiskManagementService
     }
 
     /**
-     * Calculate position size based on risk per trade
+     * Calculate position size based on percentage of available balance
+     * Scales automatically with balance - no hardcoded values
      */
     public function calculatePositionSize(
         float $accountBalance,
@@ -71,21 +72,19 @@ class RiskManagementService
         float $stopLoss,
         int $leverage = 1
     ): float {
-        $riskPerTrade = (float) Setting::getValue('risk_per_trade', 2);
+        // Use risk_per_trade as percentage of balance to allocate per position
+        $balancePercentage = (float) Setting::getValue('risk_per_trade', 2);
 
-        // Amount willing to risk
-        $riskAmount = ($accountBalance * $riskPerTrade) / 100;
+        // Calculate notional value: balance * percentage * leverage
+        // Example: $100 * 50% * 5x = $250 notional
+        $notionalValue = ($accountBalance * $balancePercentage / 100) * $leverage;
 
-        // Price distance to stop loss
-        $priceRisk = abs($entryPrice - $stopLoss);
-
-        if ($priceRisk == 0) {
+        if ($entryPrice <= 0) {
             return 0;
         }
 
-        // Calculate base quantity based on risk
-        // With leverage, the risk per point is multiplied
-        $quantity = $riskAmount / ($priceRisk * $leverage);
+        // Quantity = Notional / Price (auto scales with balance)
+        $quantity = $notionalValue / $entryPrice;
 
         return round($quantity, 8);
     }
