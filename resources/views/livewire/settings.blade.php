@@ -112,7 +112,7 @@
                         <label class="block text-sm font-medium text-gray-300 mb-2">Risk Per Trade (%)</label>
                         <input type="number" wire:model="risk_per_trade"
                                class="w-full bg-gray-800 border border-gray-600 rounded px-3 py-2 text-white focus:ring-2 focus:ring-blue-500"
-                               min="0.1" max="10" step="0.1">
+                               min="0.1" max="100" step="0.1">
                         <p class="text-xs text-gray-400 mt-1">Max % of balance to risk per trade</p>
                     </div>
                     <div>
