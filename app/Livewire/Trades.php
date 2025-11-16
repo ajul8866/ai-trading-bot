@@ -102,6 +102,9 @@ class Trades extends Component
 
     public function render()
     {
+        // Reload stats on every render for real-time updates
+        $this->loadStats();
+
         $query = Trade::query()->with('aiDecision');
 
         // Apply filters

@@ -39,19 +39,47 @@ class MonitorPositionsJob implements ShouldQueue
         try {
             Log::info('Monitoring open positions');
 
-            // Get all open trades
+            // Get all open trades from database
             $openTrades = Trade::where('status', 'OPEN')->get();
 
             if ($openTrades->isEmpty()) {
                 Log::info('No open positions to monitor');
-
                 return;
             }
 
-            Log::info('Found open positions', ['count' => $openTrades->count()]);
+            Log::info('Found open positions in database', ['count' => $openTrades->count()]);
+
+            // CRITICAL: Get actual open positions from Binance
+            $binancePositions = $binanceService->getOpenPositions();
+
+            // Create map of Binance positions by symbol and side for quick lookup
+            $binancePositionMap = [];
+            foreach ($binancePositions as $position) {
+                $key = $position['symbol'] . '_' . $position['positionSide'];
+                $binancePositionMap[$key] = $position;
+            }
+
+            Log::info('Binance open positions', ['count' => count($binancePositions)]);
 
             foreach ($openTrades as $trade) {
                 try {
+                    // Check if position exists on Binance
+                    $positionKey = $trade->symbol . '_' . $trade->side;
+
+                    if (!isset($binancePositionMap[$positionKey])) {
+                        // Position NOT found on Binance but exists in database as OPEN
+                        // This means it was closed manually on Binance
+                        Log::warning('Position closed on Binance but still open in database', [
+                            'trade_id' => $trade->id,
+                            'symbol' => $trade->symbol,
+                            'side' => $trade->side,
+                        ]);
+
+                        $this->syncClosedPosition($trade, $binanceService);
+                        continue;
+                    }
+
+                    // Position exists, monitor it normally
                     $this->monitorTrade($trade, $binanceService);
                 } catch (\Exception $e) {
                     Log::error('Error monitoring trade', [
@@ -187,6 +215,60 @@ class MonitorPositionsJob implements ShouldQueue
             });
         } catch (\Exception $e) {
             Log::error('Error closing trade', [
+                'trade_id' => $trade->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            throw $e;
+        }
+    }
+
+    /**
+     * Sync position that was manually closed on Binance
+     */
+    private function syncClosedPosition(Trade $trade, BinanceService $binanceService): void
+    {
+        try {
+            DB::transaction(function () use ($trade, $binanceService) {
+                // Lock the trade record
+                $lockedTrade = Trade::lockForUpdate()->find($trade->id);
+
+                if (!$lockedTrade || $lockedTrade->status !== 'OPEN') {
+                    Log::info('Trade already synced or not found', ['trade_id' => $trade->id]);
+                    return;
+                }
+
+                // Get current price as exit price
+                $currentPrice = $binanceService->getCurrentPrice($lockedTrade->symbol);
+
+                // Calculate PnL
+                $pnl = $this->calculatePnL($lockedTrade, $currentPrice);
+                $pnlPercentage = (($currentPrice - $lockedTrade->entry_price) / $lockedTrade->entry_price) * 100;
+
+                if ($lockedTrade->side === 'SHORT') {
+                    $pnlPercentage = -$pnlPercentage;
+                }
+
+                // Update trade status
+                $lockedTrade->update([
+                    'status' => 'CLOSED',
+                    'exit_price' => $currentPrice,
+                    'pnl' => $pnl,
+                    'pnl_percentage' => $pnlPercentage,
+                    'closed_at' => now(),
+                ]);
+
+                Log::info('Position synced from Binance (manually closed)', [
+                    'trade_id' => $lockedTrade->id,
+                    'symbol' => $lockedTrade->symbol,
+                    'entry_price' => $lockedTrade->entry_price,
+                    'exit_price' => $currentPrice,
+                    'pnl' => $pnl,
+                    'pnl_percentage' => $pnlPercentage,
+                ]);
+            });
+        } catch (\Exception $e) {
+            Log::error('Error syncing closed position', [
                 'trade_id' => $trade->id,
                 'error' => $e->getMessage(),
             ]);

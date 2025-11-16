@@ -1,4 +1,4 @@
-<div class="min-h-screen bg-gray-950">
+<div class="min-h-screen bg-gray-950" wire:poll.10s>
     <!-- Enterprise Trading Terminal Grid -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 p-6">
 
