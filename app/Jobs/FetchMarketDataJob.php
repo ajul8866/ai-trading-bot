@@ -16,6 +16,24 @@ class FetchMarketDataJob implements ShouldQueue
     use Queueable;
 
     /**
+     * The number of times the job may be attempted.
+     */
+    public int $tries = 3;
+
+    /**
+     * The number of seconds the job can run before timing out.
+     */
+    public int $timeout = 30;
+
+    /**
+     * The number of seconds to wait before retrying the job.
+     */
+    public function backoff(): array
+    {
+        return [10, 30, 60]; // Exponential backoff: 10s, 30s, 60s
+    }
+
+    /**
      * Create a new job instance.
      */
     public function __construct(

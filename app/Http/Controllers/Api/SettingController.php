@@ -3,11 +3,11 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\UpdateSettingsRequest;
 use App\Models\Setting;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Log;
 
 class SettingController extends Controller
 {
@@ -42,31 +42,37 @@ class SettingController extends Controller
         ]);
     }
 
-    public function update(Request $request): JsonResponse
+    public function update(UpdateSettingsRequest $request): JsonResponse
     {
-        $validator = Validator::make($request->all(), [
-            'settings' => 'required|array',
-            'settings.*.key' => 'required|string',
-            'settings.*.value' => 'required',
-        ]);
+        try {
+            $validated = $request->validated();
 
-        if ($validator->fails()) {
+            foreach ($validated['settings'] as $settingData) {
+                $updated = Setting::where('key', $settingData['key'])
+                    ->update(['value' => $settingData['value']]);
+
+                if (!$updated) {
+                    Log::warning('Setting not found for update', ['key' => $settingData['key']]);
+                }
+            }
+
+            // Clear cache
+            Cache::forget('all_settings');
+
             return response()->json([
-                'error' => 'Validation failed',
-                'messages' => $validator->errors(),
-            ], 422);
+                'message' => 'Settings updated successfully',
+            ], 200);
+
+        } catch (\Exception $e) {
+            Log::error('Failed to update settings', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'error' => 'Failed to update settings',
+                'message' => $e->getMessage(),
+            ], 500);
         }
-
-        foreach ($request->input('settings') as $settingData) {
-            Setting::where('key', $settingData['key'])
-                ->update(['value' => $settingData['value']]);
-        }
-
-        // Clear cache
-        Cache::forget('all_settings');
-
-        return response()->json([
-            'message' => 'Settings updated successfully',
-        ]);
     }
 }

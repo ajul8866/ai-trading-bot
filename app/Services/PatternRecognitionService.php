@@ -1038,7 +1038,7 @@ class PatternRecognitionService
         ];
     }
 
-    private function calculateHeadAndShouldersConfidence($leftShoulder, $head, $head, $neckline): float
+    private function calculateHeadAndShouldersConfidence($leftShoulder, $head, $rightShoulder, $neckline): float
     {
         $confidence = 0.5; // Base
 
