@@ -161,7 +161,8 @@ class OrderManagementService
         }
 
         // Place order with exchange
-        $result = $this->exchange->placeMarketOrder($symbol, $side, $quantity);
+        $leverage = $params['leverage'] ?? 1;
+        $result = $this->exchange->placeMarketOrder($symbol, $side, $quantity, $leverage);
 
         if ($result['success']) {
             // Record trade
@@ -169,13 +170,14 @@ class OrderManagementService
                 'symbol' => $symbol,
                 'side' => $side,
                 'quantity' => $quantity,
+                'leverage' => $leverage,
                 'order_type' => 'MARKET',
                 'entry_price' => $result['fill_price'] ?? $estimatedFillPrice,
-                'expected_price' => $currentPrice,
-                'actual_slippage' => $this->calculateActualSlippage($currentPrice, $result['fill_price'] ?? $estimatedFillPrice, $side),
+                'binance_order_id' => $result['orderId'] ?? $result['order_id'] ?? null,
                 'status' => 'OPEN',
                 'stop_loss' => $params['stop_loss'] ?? null,
                 'take_profit' => $params['take_profit'] ?? null,
+                'opened_at' => now(),
             ]);
 
             return [
@@ -228,11 +230,13 @@ class OrderManagementService
                 'symbol' => $symbol,
                 'side' => $side,
                 'quantity' => $quantity,
+                'leverage' => $params['leverage'] ?? 1,
                 'order_type' => 'LIMIT',
                 'entry_price' => $limitPrice,
                 'status' => 'OPEN',
                 'stop_loss' => $params['stop_loss'] ?? null,
                 'take_profit' => $params['take_profit'] ?? null,
+                'opened_at' => now(),
             ]);
 
             return [
@@ -485,11 +489,22 @@ class OrderManagementService
         $side = $params['side'];
 
         // Check account balance
-        $balance = $this->exchange->getBalance();
-        $currentPrice = $this->exchange->getCurrentPrice($symbol);
-        $orderValue = $quantity * $currentPrice;
+        try {
+            $accountBalance = $this->exchange->getAccountBalance();
+        } catch (\Exception $e) {
+            return [
+                'passed' => false,
+                'reason' => 'Cannot retrieve account balance: ' . $e->getMessage(),
+            ];
+        }
 
-        if ($orderValue > $balance) {
+        $currentPrice = $this->exchange->getCurrentPrice($symbol);
+        $leverage = $params['leverage'] ?? 1;
+
+        // Calculate required margin (not full order value due to leverage)
+        $requiredMargin = ($quantity * $currentPrice) / $leverage;
+
+        if ($requiredMargin > $accountBalance) {
             return [
                 'passed' => false,
                 'reason' => 'Insufficient balance',
@@ -500,7 +515,7 @@ class OrderManagementService
         $openPositions = Trade::where('status', 'OPEN')->count();
         $maxPositions = Setting::getValue('max_positions', 5);
 
-        if ($openPositions >= $maxPositions && $side === 'BUY') {
+        if ($openPositions >= $maxPositions && in_array($side, ['BUY', 'LONG'])) {
             return [
                 'passed' => false,
                 'reason' => 'Maximum open positions reached',
@@ -509,7 +524,7 @@ class OrderManagementService
 
         // Check daily loss limit
         $dailyPnL = $this->getDailyPnL();
-        $dailyLossLimit = Setting::getValue('daily_loss_limit', 0.1) * $balance;
+        $dailyLossLimit = Setting::getValue('daily_loss_limit', 0.1) * $accountBalance;
 
         if ($dailyPnL < -$dailyLossLimit) {
             return [
@@ -520,12 +535,12 @@ class OrderManagementService
 
         // Check single trade risk limit
         $riskPercent = Setting::getValue('risk_per_trade', 0.02);
-        $maxRisk = $balance * $riskPercent;
+        $maxRisk = $accountBalance * $riskPercent;
 
         if (isset($params['stop_loss'])) {
             $stopLoss = $params['stop_loss'];
             $entryPrice = $params['limit_price'] ?? $currentPrice;
-            $riskAmount = abs($entryPrice - $stopLoss) * $quantity;
+            $riskAmount = abs($entryPrice - $stopLoss) * $quantity * $leverage;
 
             if ($riskAmount > $maxRisk) {
                 return [

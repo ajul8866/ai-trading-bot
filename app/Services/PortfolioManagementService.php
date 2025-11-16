@@ -33,6 +33,8 @@ class PortfolioManagementService
 {
     private RiskManagementService $riskManagement;
 
+    private BinanceService $binanceService;
+
     // Portfolio limits
     private int $maxConcurrentPositions = 5;
 
@@ -51,9 +53,10 @@ class PortfolioManagementService
 
     private float $maxVaR95 = 0.05; // 5% Value at Risk (95% confidence)
 
-    public function __construct(RiskManagementService $riskManagement)
+    public function __construct(RiskManagementService $riskManagement, BinanceService $binanceService)
     {
         $this->riskManagement = $riskManagement;
+        $this->binanceService = $binanceService;
     }
 
     /**
@@ -722,6 +725,11 @@ class PortfolioManagementService
         $returns = [];
         $accountBalance = $this->getAccountBalance();
 
+        // Avoid division by zero
+        if ($accountBalance <= 0) {
+            return $returns;
+        }
+
         foreach ($trades as $trade) {
             if ($trade->status === 'CLOSED' && $trade->pnl !== null) {
                 $return = $trade->pnl / $accountBalance;
@@ -777,11 +785,8 @@ class PortfolioManagementService
     private function calculateUnrealizedPnL($position): float
     {
         try {
-            // Get BinanceService instance
-            $binanceService = app(BinanceService::class);
-
             // Get current price for the symbol
-            $currentPrice = $binanceService->getCurrentPrice($position->symbol);
+            $currentPrice = $this->binanceService->getCurrentPrice($position->symbol);
 
             if ($currentPrice <= 0) {
                 Log::warning('Invalid current price for unrealized PnL calculation', [
@@ -794,7 +799,7 @@ class PortfolioManagementService
             // Calculate P&L based on position side
             $priceDifference = 0;
 
-            if ($position->side === 'LONG') {
+            if (in_array($position->side, ['LONG', 'BUY'])) {
                 // For LONG: profit when current price > entry price
                 $priceDifference = $currentPrice - $position->entry_price;
             } else {

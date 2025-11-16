@@ -19,8 +19,8 @@ class OpenRouterAIService implements AIServiceInterface
 
     public function __construct()
     {
-        $this->apiKey = Setting::where('key', 'openrouter_api_key')->value('value') ?? '';
-        $this->model = Setting::where('key', 'ai_model')->value('value') ?? 'anthropic/claude-3.5-sonnet';
+        $this->apiKey = Setting::getValue('openrouter_api_key', '');
+        $this->model = Setting::getValue('ai_model', 'anthropic/claude-3.5-sonnet');
     }
 
     public function analyzeAndDecide(MarketAnalysisDTO $marketData): TradingDecisionDTO
@@ -114,10 +114,25 @@ PROMPT;
     {
         $ohlcvSummary = [];
         foreach ($marketData->ohlcvData as $timeframe => $data) {
-            $latest = end($data);
+            // Safety check: ensure data is not empty
+            if (empty($data) || !is_array($data)) {
+                continue;
+            }
+
+            // Get latest candle safely
+            $dataArray = array_values($data); // Reindex to ensure numeric keys
+            $latest = end($dataArray);
+            $first = reset($dataArray);
+
+            // Calculate price change safely
+            $change = 0;
+            if (count($dataArray) > 1 && isset($first['close']) && isset($latest['close']) && $first['close'] > 0) {
+                $change = (($latest['close'] - $first['close']) / $first['close']) * 100;
+            }
+
             $ohlcvSummary[$timeframe] = [
                 'close' => $latest['close'] ?? 0,
-                'change' => count($data) > 1 ? (($latest['close'] - $data[0]['close']) / $data[0]['close']) * 100 : 0,
+                'change' => $change,
             ];
         }
 

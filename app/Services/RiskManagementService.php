@@ -17,7 +17,7 @@ class RiskManagementService
      */
     public function canOpenPosition(): bool
     {
-        $maxPositions = (int) Setting::where('key', 'max_positions')->value('value') ?? 5;
+        $maxPositions = (int) Setting::getValue('max_positions', 5);
         $currentPositions = Trade::where('status', 'OPEN')->count();
 
         return $currentPositions < $maxPositions;
@@ -28,20 +28,31 @@ class RiskManagementService
      */
     public function isDailyLossLimitReached(): bool
     {
-        $dailyLossLimit = (float) Setting::where('key', 'daily_loss_limit')->value('value') ?? 10;
+        $dailyLossLimit = (float) Setting::getValue('daily_loss_limit', 10);
 
         $todayLoss = Trade::where('status', 'CLOSED')
             ->whereDate('closed_at', Carbon::today())
             ->sum('pnl');
 
         // Get account balance from Binance
-        $accountBalance = $this->binanceService->getAccountBalance();
+        try {
+            $accountBalance = $this->binanceService->getAccountBalance();
+        } catch (\Exception $e) {
+            // If cannot get balance, assume limit reached for safety
+            return true;
+        }
 
-        // If account balance is 0 or there's no loss, return false
-        if ($accountBalance == 0 || $todayLoss >= 0) {
+        // If account balance is 0, cannot trade (limit reached)
+        if ($accountBalance <= 0) {
+            return true;
+        }
+
+        // If there's no loss, return false
+        if ($todayLoss >= 0) {
             return false;
         }
 
+        // Calculate loss percentage against current balance
         $lossPercentage = abs($todayLoss / $accountBalance) * 100;
 
         return $lossPercentage >= $dailyLossLimit;
@@ -56,7 +67,7 @@ class RiskManagementService
         float $stopLoss,
         int $leverage = 1
     ): float {
-        $riskPerTrade = (float) Setting::where('key', 'risk_per_trade')->value('value') ?? 2;
+        $riskPerTrade = (float) Setting::getValue('risk_per_trade', 2);
 
         // Amount willing to risk
         $riskAmount = ($accountBalance * $riskPerTrade) / 100;
@@ -68,8 +79,9 @@ class RiskManagementService
             return 0;
         }
 
-        // Calculate quantity
-        $quantity = $riskAmount / $priceRisk;
+        // Calculate base quantity based on risk
+        // With leverage, the risk per point is multiplied
+        $quantity = $riskAmount / ($priceRisk * $leverage);
 
         return round($quantity, 8);
     }
@@ -81,7 +93,8 @@ class RiskManagementService
         float $entryPrice,
         ?float $stopLoss,
         ?float $takeProfit,
-        int $leverage
+        int $leverage,
+        string $side = 'BUY'
     ): array {
         $errors = [];
 
@@ -100,8 +113,27 @@ class RiskManagementService
             $errors[] = 'Leverage must be between 1 and 10';
         }
 
-        // Check risk/reward ratio
+        // Validate stop loss and take profit direction
         if ($stopLoss && $takeProfit) {
+            if (in_array($side, ['BUY', 'LONG'])) {
+                // For LONG: SL < entry < TP
+                if ($stopLoss >= $entryPrice) {
+                    $errors[] = 'For BUY/LONG: Stop loss must be below entry price';
+                }
+                if ($takeProfit <= $entryPrice) {
+                    $errors[] = 'For BUY/LONG: Take profit must be above entry price';
+                }
+            } elseif (in_array($side, ['SELL', 'SHORT'])) {
+                // For SHORT: TP < entry < SL
+                if ($stopLoss <= $entryPrice) {
+                    $errors[] = 'For SELL/SHORT: Stop loss must be above entry price';
+                }
+                if ($takeProfit >= $entryPrice) {
+                    $errors[] = 'For SELL/SHORT: Take profit must be below entry price';
+                }
+            }
+
+            // Check risk/reward ratio
             $risk = abs($entryPrice - $stopLoss);
             $reward = abs($takeProfit - $entryPrice);
 
@@ -128,15 +160,37 @@ class RiskManagementService
     ): array {
         $riskLevel = 'medium';
 
+        // Base risk level on confidence
         if ($confidence >= 80) {
             $riskLevel = 'low';
         } elseif ($confidence < 70) {
             $riskLevel = 'high';
         }
 
+        // Adjust risk based on market conditions
+        if (isset($marketConditions['volatility'])) {
+            $volatility = $marketConditions['volatility'];
+            if ($volatility === 'high' && $riskLevel === 'low') {
+                $riskLevel = 'medium'; // Upgrade risk in high volatility
+            } elseif ($volatility === 'high' && $riskLevel === 'medium') {
+                $riskLevel = 'high'; // Further upgrade
+            }
+        }
+
+        // Adjust risk based on market trend strength
+        if (isset($marketConditions['strength'])) {
+            $strength = $marketConditions['strength'];
+            if ($strength === 'weak' && $riskLevel === 'low') {
+                $riskLevel = 'medium'; // Weak trends are riskier
+            }
+        }
+
         return [
             'risk_level' => $riskLevel,
             'confidence' => $confidence,
+            'market_volatility' => $marketConditions['volatility'] ?? 'unknown',
+            'market_trend' => $marketConditions['trend'] ?? 'unknown',
+            'market_strength' => $marketConditions['strength'] ?? 'unknown',
             'can_trade' => ! $this->isDailyLossLimitReached() && $this->canOpenPosition(),
             'daily_loss_limit_reached' => $this->isDailyLossLimitReached(),
             'max_positions_reached' => ! $this->canOpenPosition(),
