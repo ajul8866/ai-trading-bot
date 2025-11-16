@@ -13,6 +13,60 @@
 
         <!-- Right Column: Stats & Info (1/3 width on large screens) -->
         <div class="space-y-6">
+            <!-- Account Balance Card -->
+            @php
+                try {
+                    $binanceService = app(\App\Services\BinanceService::class);
+                    $accountBalance = $binanceService->getAccountBalance();
+                    $openPositions = \App\Models\Trade::where('status', 'OPEN')->get();
+                    $unrealizedPnl = 0;
+
+                    foreach ($openPositions as $position) {
+                        $currentPrice = $binanceService->getCurrentPrice($position->symbol);
+                        if ($position->side === 'LONG') {
+                            $unrealizedPnl += ($currentPrice - $position->entry_price) * $position->quantity * $position->leverage;
+                        } else {
+                            $unrealizedPnl += ($position->entry_price - $currentPrice) * $position->quantity * $position->leverage;
+                        }
+                    }
+
+                    $equity = $accountBalance + $unrealizedPnl;
+                } catch (\Exception $e) {
+                    $accountBalance = 0;
+                    $unrealizedPnl = 0;
+                    $equity = 0;
+                }
+            @endphp
+            <div class="bg-gradient-to-br from-gray-900 to-gray-800 rounded-lg border border-gray-700 p-6">
+                <h3 class="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                    <svg class="w-5 h-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z"/>
+                        <path fill-rule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clip-rule="evenodd"/>
+                    </svg>
+                    Account Balance
+                </h3>
+                <div class="space-y-3">
+                    <div class="flex justify-between items-center">
+                        <span class="text-gray-400 text-sm">Wallet Balance</span>
+                        <span class="text-xl font-bold text-white">${{ number_format($accountBalance, 2) }}</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-gray-400 text-sm">Unrealized P&L</span>
+                        <span class="text-lg font-semibold {{ $unrealizedPnl >= 0 ? 'text-green-400' : 'text-red-400' }}">
+                            {{ $unrealizedPnl >= 0 ? '+' : '' }}${{ number_format($unrealizedPnl, 2) }}
+                        </span>
+                    </div>
+                    <div class="border-t border-gray-700 pt-3">
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-300 font-medium">Total Equity</span>
+                            <span class="text-2xl font-bold {{ $equity >= $accountBalance ? 'text-green-400' : 'text-red-400' }}">
+                                ${{ number_format($equity, 2) }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Bot Status Card -->
             <livewire:bot-status />
 
