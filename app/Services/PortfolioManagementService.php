@@ -424,16 +424,10 @@ class PortfolioManagementService
     }
 
     /**
-     * Calculate correlation between two trading pairs
+     * Calculate correlation between two trading pairs using REAL historical data
      */
     private function calculatePairCorrelation(string $pair1, string $pair2): float
     {
-        // Get historical price data for both pairs (last 30 days)
-        // This is simplified - in production, you'd fetch actual price data
-
-        // For now, return estimated correlation based on pair similarity
-        // BTC pairs tend to correlate, ETH pairs correlate, etc.
-
         $base1 = $this->extractBaseCurrency($pair1);
         $base2 = $this->extractBaseCurrency($pair2);
 
@@ -441,21 +435,85 @@ class PortfolioManagementService
             return 1.0; // Same pair
         }
 
-        // Major crypto correlations (simplified)
-        $highCorrelation = [
-            ['BTC', 'ETH'] => 0.75,
-            ['BTC', 'BNB'] => 0.70,
-            ['ETH', 'BNB'] => 0.72,
-        ];
+        try {
+            // Fetch REAL historical data (30 days, daily candles)
+            $history1 = $this->binanceService->getOHLCV($pair1, '1d', 30);
+            $history2 = $this->binanceService->getOHLCV($pair2, '1d', 30);
 
-        foreach ($highCorrelation as $pair => $corr) {
-            if (($pair[0] === $base1 && $pair[1] === $base2) || ($pair[0] === $base2 && $pair[1] === $base1)) {
-                return $corr;
+            if (empty($history1) || empty($history2)) {
+                Log::warning('No historical data for correlation calculation', [
+                    'pair1' => $pair1,
+                    'pair2' => $pair2,
+                ]);
+                return 0.5; // Conservative default if no data
             }
+
+            // Extract close prices
+            $prices1 = array_column($history1, 'close');
+            $prices2 = array_column($history2, 'close');
+
+            // Calculate returns
+            $returns1 = [];
+            $returns2 = [];
+
+            $minLength = min(count($prices1), count($prices2));
+
+            for ($i = 1; $i < $minLength; $i++) {
+                if ($prices1[$i-1] > 0) {
+                    $returns1[] = ($prices1[$i] - $prices1[$i-1]) / $prices1[$i-1];
+                }
+                if ($prices2[$i-1] > 0) {
+                    $returns2[] = ($prices2[$i] - $prices2[$i-1]) / $prices2[$i-1];
+                }
+            }
+
+            // Calculate Pearson correlation
+            return $this->calculatePearsonCorrelation($returns1, $returns2);
+
+        } catch (\Exception $e) {
+            Log::error('Error calculating pair correlation', [
+                'pair1' => $pair1,
+                'pair2' => $pair2,
+                'error' => $e->getMessage(),
+            ]);
+            return 0.5; // Conservative default on error
+        }
+    }
+
+    /**
+     * Calculate Pearson correlation coefficient
+     */
+    private function calculatePearsonCorrelation(array $x, array $y): float
+    {
+        $n = min(count($x), count($y));
+
+        if ($n < 2) {
+            return 0;
         }
 
-        // Default low correlation
-        return 0.3;
+        $meanX = array_sum($x) / $n;
+        $meanY = array_sum($y) / $n;
+
+        $numerator = 0;
+        $sumSqX = 0;
+        $sumSqY = 0;
+
+        for ($i = 0; $i < $n; $i++) {
+            $diffX = $x[$i] - $meanX;
+            $diffY = $y[$i] - $meanY;
+
+            $numerator += $diffX * $diffY;
+            $sumSqX += $diffX * $diffX;
+            $sumSqY += $diffY * $diffY;
+        }
+
+        $denominator = sqrt($sumSqX * $sumSqY);
+
+        if ($denominator == 0) {
+            return 0;
+        }
+
+        return $numerator / $denominator;
     }
 
     /**

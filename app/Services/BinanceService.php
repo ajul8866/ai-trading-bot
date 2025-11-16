@@ -412,6 +412,209 @@ class BinanceService implements ExchangeInterface
         }
     }
 
+    public function cancelOrder(string $symbol, string $orderId): array
+    {
+        if (empty($this->apiKey) || empty($this->apiSecret)) {
+            return ['success' => false, 'error' => 'API credentials not configured'];
+        }
+
+        try {
+            $timestamp = now()->timestamp * 1000;
+            $params = [
+                'symbol' => $symbol,
+                'orderId' => $orderId,
+                'timestamp' => $timestamp,
+            ];
+
+            $signature = $this->generateSignature($params);
+            $params['signature'] = $signature;
+
+            $response = Http::withHeaders([
+                'X-MBX-APIKEY' => $this->apiKey,
+            ])->delete("{$this->baseUrl}/fapi/v1/order", $params);
+
+            if ($response->successful()) {
+                return array_merge(['success' => true], $response->json());
+            }
+
+            Log::error('Failed to cancel order', ['orderId' => $orderId, 'response' => $response->body()]);
+
+            return [
+                'success' => false,
+                'error' => $response->body(),
+            ];
+        } catch (\Exception $e) {
+            Log::error('Exception cancelling order', ['orderId' => $orderId, 'error' => $e->getMessage()]);
+
+            return [
+                'success' => false,
+                'error' => $e->getMessage(),
+            ];
+        }
+    }
+
+    public function placeStopMarketOrder(string $symbol, string $side, float $quantity, float $stopPrice, int $leverage = 1): array
+    {
+        if (empty($this->apiKey) || empty($this->apiSecret)) {
+            return ['success' => false, 'error' => 'API credentials not configured'];
+        }
+
+        try {
+            // Set leverage first
+            if (!$this->setLeverage($symbol, $leverage)) {
+                Log::warning('Failed to set leverage, continuing with current leverage', [
+                    'symbol' => $symbol,
+                    'requested_leverage' => $leverage
+                ]);
+            }
+
+            $timestamp = now()->timestamp * 1000;
+            $params = [
+                'symbol' => $symbol,
+                'side' => $side,
+                'type' => 'STOP_MARKET',
+                'quantity' => $quantity,
+                'stopPrice' => $stopPrice,
+                'timestamp' => $timestamp,
+            ];
+
+            $signature = $this->generateSignature($params);
+            $params['signature'] = $signature;
+
+            $response = Http::withHeaders([
+                'X-MBX-APIKEY' => $this->apiKey,
+            ])->post("{$this->baseUrl}/fapi/v1/order", $params);
+
+            if ($response->successful()) {
+                $data = $response->json();
+                return array_merge(['success' => true], $data);
+            }
+
+            Log::error('Failed to place stop market order', ['params' => $params, 'response' => $response->body()]);
+
+            return [
+                'success' => false,
+                'error' => $response->body(),
+            ];
+        } catch (\Exception $e) {
+            Log::error('Exception placing stop market order', ['error' => $e->getMessage()]);
+
+            return [
+                'success' => false,
+                'error' => $e->getMessage(),
+            ];
+        }
+    }
+
+    public function placeStopLimitOrder(string $symbol, string $side, float $quantity, float $stopPrice, float $limitPrice, int $leverage = 1): array
+    {
+        if (empty($this->apiKey) || empty($this->apiSecret)) {
+            return ['success' => false, 'error' => 'API credentials not configured'];
+        }
+
+        try {
+            // Set leverage first
+            if (!$this->setLeverage($symbol, $leverage)) {
+                Log::warning('Failed to set leverage, continuing with current leverage', [
+                    'symbol' => $symbol,
+                    'requested_leverage' => $leverage
+                ]);
+            }
+
+            $timestamp = now()->timestamp * 1000;
+            $params = [
+                'symbol' => $symbol,
+                'side' => $side,
+                'type' => 'STOP',
+                'timeInForce' => 'GTC',
+                'quantity' => $quantity,
+                'price' => $limitPrice,
+                'stopPrice' => $stopPrice,
+                'timestamp' => $timestamp,
+            ];
+
+            $signature = $this->generateSignature($params);
+            $params['signature'] = $signature;
+
+            $response = Http::withHeaders([
+                'X-MBX-APIKEY' => $this->apiKey,
+            ])->post("{$this->baseUrl}/fapi/v1/order", $params);
+
+            if ($response->successful()) {
+                $data = $response->json();
+                return array_merge(['success' => true], $data);
+            }
+
+            Log::error('Failed to place stop limit order', ['params' => $params, 'response' => $response->body()]);
+
+            return [
+                'success' => false,
+                'error' => $response->body(),
+            ];
+        } catch (\Exception $e) {
+            Log::error('Exception placing stop limit order', ['error' => $e->getMessage()]);
+
+            return [
+                'success' => false,
+                'error' => $e->getMessage(),
+            ];
+        }
+    }
+
+    public function placeTrailingStopOrder(string $symbol, string $side, float $quantity, float $activationPrice, float $callbackRate, int $leverage = 1): array
+    {
+        if (empty($this->apiKey) || empty($this->apiSecret)) {
+            return ['success' => false, 'error' => 'API credentials not configured'];
+        }
+
+        try {
+            // Set leverage first
+            if (!$this->setLeverage($symbol, $leverage)) {
+                Log::warning('Failed to set leverage, continuing with current leverage', [
+                    'symbol' => $symbol,
+                    'requested_leverage' => $leverage
+                ]);
+            }
+
+            $timestamp = now()->timestamp * 1000;
+            $params = [
+                'symbol' => $symbol,
+                'side' => $side,
+                'type' => 'TRAILING_STOP_MARKET',
+                'quantity' => $quantity,
+                'activationPrice' => $activationPrice,
+                'callbackRate' => $callbackRate, // 0.1 to 5 (represents %)
+                'timestamp' => $timestamp,
+            ];
+
+            $signature = $this->generateSignature($params);
+            $params['signature'] = $signature;
+
+            $response = Http::withHeaders([
+                'X-MBX-APIKEY' => $this->apiKey,
+            ])->post("{$this->baseUrl}/fapi/v1/order", $params);
+
+            if ($response->successful()) {
+                $data = $response->json();
+                return array_merge(['success' => true], $data);
+            }
+
+            Log::error('Failed to place trailing stop order', ['params' => $params, 'response' => $response->body()]);
+
+            return [
+                'success' => false,
+                'error' => $response->body(),
+            ];
+        } catch (\Exception $e) {
+            Log::error('Exception placing trailing stop order', ['error' => $e->getMessage()]);
+
+            return [
+                'success' => false,
+                'error' => $e->getMessage(),
+            ];
+        }
+    }
+
     private function setLeverage(string $symbol, int $leverage): bool
     {
         if (empty($this->apiKey) || empty($this->apiSecret)) {
