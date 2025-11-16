@@ -1,4 +1,4 @@
-<div class="bg-gray-900 rounded-lg border border-gray-800 overflow-hidden">
+<div class="bg-gray-900 rounded-lg border border-gray-800 overflow-hidden" wire:poll.30s>
     <!-- Chart Header -->
     <div class="bg-gray-800 border-b border-gray-700 p-4">
         <div class="flex items-center justify-between">
