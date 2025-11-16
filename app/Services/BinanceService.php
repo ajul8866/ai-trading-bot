@@ -21,6 +21,37 @@ class BinanceService implements ExchangeInterface
         $this->apiSecret = Setting::getValue('binance_api_secret', '');
     }
 
+    /**
+     * Validate trading symbol format
+     */
+    private function validateSymbol(string $symbol): bool
+    {
+        // Binance symbols are uppercase alphanumeric, typically ending with USDT, BUSD, etc.
+        return preg_match('/^[A-Z0-9]{2,20}$/', $symbol) === 1;
+    }
+
+    /**
+     * Validate order parameters
+     */
+    private function validateOrderParams(string $symbol, string $side, float $quantity): array
+    {
+        $errors = [];
+
+        if (!$this->validateSymbol($symbol)) {
+            $errors[] = "Invalid symbol format: {$symbol}";
+        }
+
+        if (!in_array($side, ['BUY', 'SELL'])) {
+            $errors[] = "Invalid side: {$side}. Must be BUY or SELL";
+        }
+
+        if ($quantity <= 0) {
+            $errors[] = "Invalid quantity: {$quantity}. Must be greater than 0";
+        }
+
+        return $errors;
+    }
+
     public function getCurrentPrice(string $symbol): float
     {
         try {
@@ -83,6 +114,12 @@ class BinanceService implements ExchangeInterface
             return ['error' => 'API credentials not configured'];
         }
 
+        // Validate input parameters
+        $validationErrors = $this->validateOrderParams($symbol, $side, $quantity);
+        if (!empty($validationErrors)) {
+            return ['success' => false, 'error' => implode('; ', $validationErrors)];
+        }
+
         try {
             // Set leverage first
             if (!$this->setLeverage($symbol, $leverage)) {
@@ -114,7 +151,12 @@ class BinanceService implements ExchangeInterface
                 return array_merge(['success' => true], $data);
             }
 
-            Log::error('Failed to place market order', ['params' => $params, 'response' => $response->body()]);
+            Log::error('Failed to place market order', [
+                'symbol' => $symbol,
+                'side' => $side,
+                'quantity' => $quantity,
+                'response' => $response->body()
+            ]);
 
             return [
                 'success' => false,
@@ -134,6 +176,15 @@ class BinanceService implements ExchangeInterface
     {
         if (empty($this->apiKey) || empty($this->apiSecret)) {
             return ['error' => 'API credentials not configured'];
+        }
+
+        // Validate input parameters
+        $validationErrors = $this->validateOrderParams($symbol, $side, $quantity);
+        if ($price <= 0) {
+            $validationErrors[] = "Invalid price: {$price}. Must be greater than 0";
+        }
+        if (!empty($validationErrors)) {
+            return ['success' => false, 'error' => implode('; ', $validationErrors)];
         }
 
         try {
@@ -169,7 +220,13 @@ class BinanceService implements ExchangeInterface
                 return array_merge(['success' => true], $data);
             }
 
-            Log::error('Failed to place limit order', ['params' => $params, 'response' => $response->body()]);
+            Log::error('Failed to place limit order', [
+                'symbol' => $symbol,
+                'side' => $side,
+                'quantity' => $quantity,
+                'price' => $price,
+                'response' => $response->body()
+            ]);
 
             return [
                 'success' => false,
@@ -309,7 +366,7 @@ class BinanceService implements ExchangeInterface
                 'side' => $orderSide,
                 'type' => 'STOP_MARKET',
                 'stopPrice' => $stopPrice,
-                'closePosition' => 'true', // Close the entire position
+                'closePosition' => true, // Close the entire position
                 'timestamp' => $timestamp,
             ];
 
@@ -352,7 +409,7 @@ class BinanceService implements ExchangeInterface
                 'side' => $orderSide,
                 'type' => 'TAKE_PROFIT_MARKET',
                 'stopPrice' => $takeProfitPrice,
-                'closePosition' => 'true', // Close the entire position
+                'closePosition' => true, // Close the entire position
                 'timestamp' => $timestamp,
             ];
 

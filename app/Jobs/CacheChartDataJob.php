@@ -94,6 +94,8 @@ class CacheChartDataJob implements ShouldQueue
                 'timeframe' => $this->timeframe,
                 'error' => $e->getMessage(),
             ]);
+
+            throw $e; // Re-throw to trigger job retry
         }
     }
 }

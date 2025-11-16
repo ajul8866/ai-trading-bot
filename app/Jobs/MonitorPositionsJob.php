@@ -6,6 +6,7 @@ use App\Models\Trade;
 use App\Services\BinanceService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class MonitorPositionsJob implements ShouldQueue
@@ -131,47 +132,59 @@ class MonitorPositionsJob implements ShouldQueue
         string $reason
     ): void {
         try {
-            // Close position on Binance
-            $closeResult = $binanceService->closePosition(
-                $trade->symbol,
-                $trade->quantity,
-                $trade->side
-            );
+            // Use database transaction with locking to prevent race conditions
+            DB::transaction(function () use ($trade, $binanceService, $currentPrice, $reason) {
+                // Lock the trade record to prevent concurrent modifications
+                $lockedTrade = Trade::lockForUpdate()->find($trade->id);
 
-            if (isset($closeResult['error'])) {
-                Log::error('Failed to close position on Binance', [
-                    'trade_id' => $trade->id,
-                    'error' => $closeResult['error'],
+                // Check if trade is still open (might have been closed by another job)
+                if (!$lockedTrade || $lockedTrade->status !== 'OPEN') {
+                    Log::info('Trade already closed or not found', ['trade_id' => $trade->id]);
+                    return;
+                }
+
+                // Close position on Binance
+                $closeResult = $binanceService->closePosition(
+                    $lockedTrade->symbol,
+                    $lockedTrade->quantity,
+                    $lockedTrade->side
+                );
+
+                if (isset($closeResult['error'])) {
+                    Log::error('Failed to close position on Binance', [
+                        'trade_id' => $lockedTrade->id,
+                        'error' => $closeResult['error'],
+                    ]);
+
+                    return;
+                }
+
+                // Calculate PnL
+                $pnl = $this->calculatePnL($lockedTrade, $currentPrice);
+                $pnlPercentage = (($currentPrice - $lockedTrade->entry_price) / $lockedTrade->entry_price) * 100;
+
+                if ($lockedTrade->side === 'SHORT') {
+                    $pnlPercentage = -$pnlPercentage;
+                }
+
+                // Update trade in database
+                $lockedTrade->update([
+                    'status' => 'CLOSED',
+                    'exit_price' => $currentPrice,
+                    'pnl' => $pnl,
+                    'pnl_percentage' => $pnlPercentage,
+                    'closed_at' => now(),
                 ]);
 
-                return;
-            }
-
-            // Calculate PnL
-            $pnl = $this->calculatePnL($trade, $currentPrice);
-            $pnlPercentage = (($currentPrice - $trade->entry_price) / $trade->entry_price) * 100;
-
-            if ($trade->side === 'SHORT') {
-                $pnlPercentage = -$pnlPercentage;
-            }
-
-            // Update trade in database
-            $trade->update([
-                'status' => 'CLOSED',
-                'exit_price' => $currentPrice,
-                'pnl' => $pnl,
-                'pnl_percentage' => $pnlPercentage,
-                'closed_at' => now(),
-            ]);
-
-            Log::info('Position closed successfully', [
-                'trade_id' => $trade->id,
-                'reason' => $reason,
-                'entry_price' => $trade->entry_price,
-                'exit_price' => $currentPrice,
-                'pnl' => $pnl,
-                'pnl_percentage' => $pnlPercentage,
-            ]);
+                Log::info('Position closed successfully', [
+                    'trade_id' => $lockedTrade->id,
+                    'reason' => $reason,
+                    'entry_price' => $lockedTrade->entry_price,
+                    'exit_price' => $currentPrice,
+                    'pnl' => $pnl,
+                    'pnl_percentage' => $pnlPercentage,
+                ]);
+            });
         } catch (\Exception $e) {
             Log::error('Error closing trade', [
                 'trade_id' => $trade->id,

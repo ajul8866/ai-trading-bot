@@ -49,9 +49,10 @@ class SnapshotPerformanceJob implements ShouldQueue
                 ? now()->subDay()
                 : now()->subHour();
 
-            // Get all closed trades in the period
+            // Get all closed trades in the period (ordered by closed_at for efficient calculation)
             $trades = Trade::where('status', 'CLOSED')
                 ->where('closed_at', '>=', $startTime)
+                ->orderBy('closed_at', 'asc')
                 ->get();
 
             if ($trades->isEmpty()) {
@@ -109,6 +110,8 @@ class SnapshotPerformanceJob implements ShouldQueue
                 'period' => $this->period,
                 'error' => $e->getMessage(),
             ]);
+
+            throw $e; // Re-throw to trigger job retry
         }
     }
 
@@ -166,7 +169,8 @@ class SnapshotPerformanceJob implements ShouldQueue
         $peak = 0;
         $maxDrawdown = 0;
 
-        foreach ($trades->sortBy('closed_at') as $trade) {
+        // Trades are already sorted by closed_at from query (no in-memory sorting needed)
+        foreach ($trades as $trade) {
             $cumulativePnl += $trade->pnl;
 
             if ($cumulativePnl > $peak) {
