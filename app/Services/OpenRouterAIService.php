@@ -166,7 +166,7 @@ PROMPT;
                         confidence: (float) ($data['confidence'] ?? 0),
                         reasoning: $data['reasoning'] ?? 'No reasoning provided',
                         marketConditions: $data['market_conditions'] ?? [],
-                        recommendedLeverage: $data['recommended_leverage'] ?? null,
+                        recommendedLeverage: null, // IGNORE AI recommendation - use settings only
                         recommendedStopLoss: $data['recommended_stop_loss'] ?? null,
                         recommendedTakeProfit: $data['recommended_take_profit'] ?? null,
                         riskAssessment: $data['risk_assessment'] ?? null,
