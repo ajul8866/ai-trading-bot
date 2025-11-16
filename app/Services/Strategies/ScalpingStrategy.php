@@ -79,7 +79,7 @@ class ScalpingStrategy implements TradingStrategyInterface
 
     private float $rsiOverbought = 70;
 
-    private float $targetProfitPercent = 0.004; // 0.4% target
+    private float $targetProfitPercent = 0.0045; // 0.45% target (1.5x risk for 1.5:1 R:R)
 
     private float $stopLossPercent = 0.003; // 0.3% stop
 

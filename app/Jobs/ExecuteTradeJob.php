@@ -47,6 +47,23 @@ class ExecuteTradeJob implements ShouldQueue
                 return;
             }
 
+            // CRITICAL: Idempotency check - prevent duplicate orders on retry
+            $existingTrade = Trade::where('ai_decision_id', $this->aiDecisionId)->first();
+            if ($existingTrade) {
+                Log::warning('Trade already exists for this AI decision', [
+                    'ai_decision_id' => $this->aiDecisionId,
+                    'trade_id' => $existingTrade->id,
+                    'status' => $existingTrade->status,
+                ]);
+
+                // Mark as executed if not already marked
+                if (!$aiDecision->executed) {
+                    $aiDecision->update(['executed' => true]);
+                }
+
+                return;
+            }
+
             Log::info('Executing trade', [
                 'ai_decision_id' => $this->aiDecisionId,
                 'symbol' => $aiDecision->symbol,

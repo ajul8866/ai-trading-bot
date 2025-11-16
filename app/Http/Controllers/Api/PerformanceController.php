@@ -28,18 +28,24 @@ class PerformanceController extends Controller
     public function metrics(): JsonResponse
     {
         return Cache::remember('performance_metrics', 60, function () {
-            $totalTrades = Trade::where('status', 'CLOSED')->count();
-            $winningTrades = Trade::where('status', 'CLOSED')->where('pnl', '>', 0)->count();
-            $losingTrades = Trade::where('status', 'CLOSED')->where('pnl', '<', 0)->count();
-            $totalPnl = Trade::where('status', 'CLOSED')->sum('pnl');
+            // Optimized: Single query instead of 6 separate queries
+            $metrics = Trade::where('status', 'CLOSED')
+                ->selectRaw('
+                    COUNT(*) as total_trades,
+                    SUM(CASE WHEN pnl > 0 THEN 1 ELSE 0 END) as winning_trades,
+                    SUM(CASE WHEN pnl < 0 THEN 1 ELSE 0 END) as losing_trades,
+                    SUM(pnl) as total_pnl,
+                    AVG(CASE WHEN pnl > 0 THEN pnl ELSE NULL END) as avg_win,
+                    AVG(CASE WHEN pnl < 0 THEN pnl ELSE NULL END) as avg_loss
+                ')
+                ->first();
 
-            $avgWin = $winningTrades > 0
-                ? Trade::where('status', 'CLOSED')->where('pnl', '>', 0)->avg('pnl')
-                : 0;
-
-            $avgLoss = $losingTrades > 0
-                ? Trade::where('status', 'CLOSED')->where('pnl', '<', 0)->avg('pnl')
-                : 0;
+            $totalTrades = $metrics->total_trades ?? 0;
+            $winningTrades = $metrics->winning_trades ?? 0;
+            $losingTrades = $metrics->losing_trades ?? 0;
+            $totalPnl = $metrics->total_pnl ?? 0;
+            $avgWin = $metrics->avg_win ?? 0;
+            $avgLoss = $metrics->avg_loss ?? 0;
 
             $winRate = $totalTrades > 0 ? ($winningTrades / $totalTrades) * 100 : 0;
 
