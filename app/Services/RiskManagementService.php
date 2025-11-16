@@ -143,8 +143,8 @@ class RiskManagementService
 
             $riskRewardRatio = $risk > 0 ? $reward / $risk : 0;
 
-            if ($riskRewardRatio < 1.5) {
-                $errors[] = 'Risk/Reward ratio must be at least 1.5:1';
+            if ($riskRewardRatio < 1.0) {
+                $errors[] = 'Risk/Reward ratio must be at least 1.0:1';
             }
         }
 

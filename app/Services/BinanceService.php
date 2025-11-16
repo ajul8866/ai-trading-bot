@@ -143,7 +143,7 @@ class BinanceService implements ExchangeInterface
 
             $response = Http::withHeaders([
                 'X-MBX-APIKEY' => $this->apiKey,
-            ])->post("{$this->baseUrl}/fapi/v1/order", $params);
+            ])->asForm()->post("{$this->baseUrl}/fapi/v1/order", $params);
 
             if ($response->successful()) {
                 $data = $response->json();
@@ -212,7 +212,7 @@ class BinanceService implements ExchangeInterface
 
             $response = Http::withHeaders([
                 'X-MBX-APIKEY' => $this->apiKey,
-            ])->post("{$this->baseUrl}/fapi/v1/order", $params);
+            ])->asForm()->post("{$this->baseUrl}/fapi/v1/order", $params);
 
             if ($response->successful()) {
                 $data = $response->json();
@@ -375,7 +375,7 @@ class BinanceService implements ExchangeInterface
 
             $response = Http::withHeaders([
                 'X-MBX-APIKEY' => $this->apiKey,
-            ])->post("{$this->baseUrl}/fapi/v1/order", $params);
+            ])->asForm()->post("{$this->baseUrl}/fapi/v1/order", $params);
 
             if ($response->successful()) {
                 return $response->json();
@@ -418,7 +418,7 @@ class BinanceService implements ExchangeInterface
 
             $response = Http::withHeaders([
                 'X-MBX-APIKEY' => $this->apiKey,
-            ])->post("{$this->baseUrl}/fapi/v1/order", $params);
+            ])->asForm()->post("{$this->baseUrl}/fapi/v1/order", $params);
 
             if ($response->successful()) {
                 return $response->json();
@@ -488,7 +488,7 @@ class BinanceService implements ExchangeInterface
 
             $response = Http::withHeaders([
                 'X-MBX-APIKEY' => $this->apiKey,
-            ])->delete("{$this->baseUrl}/fapi/v1/order", $params);
+            ])->asForm()->delete("{$this->baseUrl}/fapi/v1/order", $params);
 
             if ($response->successful()) {
                 return array_merge(['success' => true], $response->json());
@@ -540,7 +540,7 @@ class BinanceService implements ExchangeInterface
 
             $response = Http::withHeaders([
                 'X-MBX-APIKEY' => $this->apiKey,
-            ])->post("{$this->baseUrl}/fapi/v1/order", $params);
+            ])->asForm()->post("{$this->baseUrl}/fapi/v1/order", $params);
 
             if ($response->successful()) {
                 $data = $response->json();
@@ -595,7 +595,7 @@ class BinanceService implements ExchangeInterface
 
             $response = Http::withHeaders([
                 'X-MBX-APIKEY' => $this->apiKey,
-            ])->post("{$this->baseUrl}/fapi/v1/order", $params);
+            ])->asForm()->post("{$this->baseUrl}/fapi/v1/order", $params);
 
             if ($response->successful()) {
                 $data = $response->json();
@@ -649,7 +649,7 @@ class BinanceService implements ExchangeInterface
 
             $response = Http::withHeaders([
                 'X-MBX-APIKEY' => $this->apiKey,
-            ])->post("{$this->baseUrl}/fapi/v1/order", $params);
+            ])->asForm()->post("{$this->baseUrl}/fapi/v1/order", $params);
 
             if ($response->successful()) {
                 $data = $response->json();
@@ -692,7 +692,7 @@ class BinanceService implements ExchangeInterface
 
             $response = Http::withHeaders([
                 'X-MBX-APIKEY' => $this->apiKey,
-            ])->post("{$this->baseUrl}/fapi/v1/leverage", $params);
+            ])->asForm()->post("{$this->baseUrl}/fapi/v1/leverage", $params);
 
             if ($response->successful()) {
                 return true;
