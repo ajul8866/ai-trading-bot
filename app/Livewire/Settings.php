@@ -26,6 +26,7 @@ class Settings extends Component
     public $max_positions = 5;
     public $risk_per_trade = 2;
     public $daily_loss_limit = 10;
+    public $default_leverage = 5;
 
     // AI Configuration
     public $ai_model = 'anthropic/claude-3.5-sonnet';
@@ -75,6 +76,7 @@ class Settings extends Component
         $this->max_positions = (int) ($settings->get('max_positions')?->value ?? 5);
         $this->risk_per_trade = (float) ($settings->get('risk_per_trade')?->value ?? 2);
         $this->daily_loss_limit = (float) ($settings->get('daily_loss_limit')?->value ?? 10);
+        $this->default_leverage = (int) ($settings->get('default_leverage')?->value ?? 5);
 
         // AI Configuration
         $this->ai_model = $settings->get('ai_model')?->value ?? 'anthropic/claude-3.5-sonnet';
@@ -98,40 +100,41 @@ class Settings extends Component
     {
         try {
             // Bot Status
-            Setting::where('key', 'bot_enabled')->update(['value' => $this->bot_enabled ? 'true' : 'false']);
+            Setting::updateOrCreate(['key' => 'bot_enabled'], ['value' => $this->bot_enabled ? 'true' : 'false']);
 
             // API Keys
-            Setting::where('key', 'binance_api_key')->update(['value' => $this->binance_api_key]);
-            Setting::where('key', 'binance_api_secret')->update(['value' => $this->binance_api_secret]);
-            Setting::where('key', 'openrouter_api_key')->update(['value' => $this->openrouter_api_key]);
+            Setting::updateOrCreate(['key' => 'binance_api_key'], ['value' => $this->binance_api_key]);
+            Setting::updateOrCreate(['key' => 'binance_api_secret'], ['value' => $this->binance_api_secret]);
+            Setting::updateOrCreate(['key' => 'openrouter_api_key'], ['value' => $this->openrouter_api_key]);
 
             // Trading Configuration
             $tradingPairsArray = array_map('trim', explode(',', $this->trading_pairs));
-            Setting::where('key', 'trading_pairs')->update(['value' => json_encode($tradingPairsArray)]);
+            Setting::updateOrCreate(['key' => 'trading_pairs'], ['value' => json_encode($tradingPairsArray)]);
 
             $timeframesArray = array_map('trim', explode(',', $this->timeframes));
-            Setting::where('key', 'timeframes')->update(['value' => json_encode($timeframesArray)]);
+            Setting::updateOrCreate(['key' => 'timeframes'], ['value' => json_encode($timeframesArray)]);
 
-            Setting::where('key', 'analysis_interval')->update(['value' => $this->analysis_interval]);
+            Setting::updateOrCreate(['key' => 'analysis_interval'], ['value' => $this->analysis_interval]);
 
             // Risk Management
-            Setting::where('key', 'max_positions')->update(['value' => $this->max_positions]);
-            Setting::where('key', 'risk_per_trade')->update(['value' => $this->risk_per_trade]);
-            Setting::where('key', 'daily_loss_limit')->update(['value' => $this->daily_loss_limit]);
+            Setting::updateOrCreate(['key' => 'max_positions'], ['value' => $this->max_positions]);
+            Setting::updateOrCreate(['key' => 'risk_per_trade'], ['value' => $this->risk_per_trade]);
+            Setting::updateOrCreate(['key' => 'daily_loss_limit'], ['value' => $this->daily_loss_limit]);
+            Setting::updateOrCreate(['key' => 'default_leverage'], ['value' => $this->default_leverage]);
 
             // AI Configuration
-            Setting::where('key', 'ai_model')->update(['value' => $this->ai_model]);
-            Setting::where('key', 'min_confidence')->update(['value' => $this->min_confidence]);
-            Setting::where('key', 'ai_prompt_system')->update(['value' => $this->ai_prompt_system]);
-            Setting::where('key', 'ai_prompt_templates')->update(['value' => $this->ai_prompt_templates]);
-            Setting::where('key', 'ai_prompt_risk_profile')->update(['value' => $this->ai_prompt_risk_profile]);
+            Setting::updateOrCreate(['key' => 'ai_model'], ['value' => $this->ai_model]);
+            Setting::updateOrCreate(['key' => 'min_confidence'], ['value' => $this->min_confidence]);
+            Setting::updateOrCreate(['key' => 'ai_prompt_system'], ['value' => $this->ai_prompt_system]);
+            Setting::updateOrCreate(['key' => 'ai_prompt_templates'], ['value' => $this->ai_prompt_templates]);
+            Setting::updateOrCreate(['key' => 'ai_prompt_risk_profile'], ['value' => $this->ai_prompt_risk_profile]);
 
             // Cache Configuration
-            Setting::where('key', 'cache_ttl_prices')->update(['value' => $this->cache_ttl_prices]);
-            Setting::where('key', 'cache_ttl_charts')->update(['value' => $this->cache_ttl_charts]);
+            Setting::updateOrCreate(['key' => 'cache_ttl_prices'], ['value' => $this->cache_ttl_prices]);
+            Setting::updateOrCreate(['key' => 'cache_ttl_charts'], ['value' => $this->cache_ttl_charts]);
 
             // UI Configuration
-            Setting::where('key', 'ui_refresh_interval')->update(['value' => $this->ui_refresh_interval]);
+            Setting::updateOrCreate(['key' => 'ui_refresh_interval'], ['value' => $this->ui_refresh_interval]);
 
             $this->message = 'All settings saved successfully!';
             $this->messageType = 'success';
