@@ -38,8 +38,12 @@ class RiskManagementService
         try {
             $accountBalance = $this->binanceService->getAccountBalance();
         } catch (\Exception $e) {
-            // If cannot get balance, assume limit reached for safety
-            return true;
+            // CRITICAL FIX: Don't assume limit reached on error - throw exception to halt trading
+            \Log::critical('Failed to check daily loss limit - cannot verify risk management', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            throw new \RuntimeException('Cannot verify daily loss limit - halting trading for safety: ' . $e->getMessage());
         }
 
         // If account balance is 0, cannot trade (limit reached)

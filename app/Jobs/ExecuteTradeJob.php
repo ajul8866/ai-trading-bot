@@ -15,7 +15,19 @@ class ExecuteTradeJob implements ShouldQueue
 {
     use Queueable;
 
-    public $timeout = 60;
+    /**
+     * CRITICAL FIX: Add retry configuration for trade execution reliability
+     */
+    public int $tries = 3; // Retry up to 3 times for failed trade execution
+    public int $timeout = 60;
+
+    /**
+     * Exponential backoff for retries (seconds)
+     */
+    public function backoff(): array
+    {
+        return [30, 60, 120]; // Wait longer between trade retries (30s, 60s, 120s)
+    }
 
     /**
      * Create a new job instance.
