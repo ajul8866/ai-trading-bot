@@ -35,4 +35,46 @@ return [
         ],
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Binance API Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Configuration for Binance Futures API integration. Get your API keys from
+    | https://www.binance.com/en/my/settings/api-management
+    |
+    | IMPORTANT: For testing, use Binance Testnet:
+    | https://testnet.binancefuture.com
+    |
+    */
+
+    'binance' => [
+        'api_key' => env('BINANCE_API_KEY'),
+        'api_secret' => env('BINANCE_API_SECRET'),
+        'testnet' => env('BINANCE_TESTNET', false),
+        'base_url' => env('BINANCE_TESTNET', false)
+            ? 'https://testnet.binancefuture.com'
+            : 'https://fapi.binance.com',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | OpenRouter AI Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Configuration for OpenRouter AI service. Get your API key from
+    | https://openrouter.ai/keys
+    |
+    | OpenRouter provides access to multiple AI models including Claude,
+    | GPT-4, and many others.
+    |
+    */
+
+    'openrouter' => [
+        'api_key' => env('OPENROUTER_API_KEY'),
+        'base_url' => env('OPENROUTER_BASE_URL', 'https://openrouter.ai/api/v1'),
+        'model' => env('AI_MODEL', 'anthropic/claude-3.5-sonnet'),
+        'temperature' => env('AI_TEMPERATURE', 0.3),
+    ],
+
 ];
