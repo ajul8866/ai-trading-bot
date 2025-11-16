@@ -151,6 +151,50 @@ class ExecuteTradeJob implements ShouldQueue
                     throw new \Exception('Order failed: '.$orderResult['error']);
                 }
 
+                // Set Stop Loss and Take Profit orders on Binance
+                $stopLoss = $aiDecision->recommended_stop_loss;
+                $takeProfit = $aiDecision->recommended_take_profit;
+
+                if ($stopLoss) {
+                    $slResult = $binanceService->setStopLoss(
+                        $aiDecision->symbol,
+                        $stopLoss,
+                        $tradeSide // LONG or SHORT
+                    );
+                    if (isset($slResult['error'])) {
+                        Log::warning('Failed to set stop loss on Binance', [
+                            'symbol' => $aiDecision->symbol,
+                            'stop_loss' => $stopLoss,
+                            'error' => $slResult['error'],
+                        ]);
+                    } else {
+                        Log::info('Stop loss set on Binance', [
+                            'symbol' => $aiDecision->symbol,
+                            'stop_loss' => $stopLoss,
+                        ]);
+                    }
+                }
+
+                if ($takeProfit) {
+                    $tpResult = $binanceService->setTakeProfit(
+                        $aiDecision->symbol,
+                        $takeProfit,
+                        $tradeSide // LONG or SHORT
+                    );
+                    if (isset($tpResult['error'])) {
+                        Log::warning('Failed to set take profit on Binance', [
+                            'symbol' => $aiDecision->symbol,
+                            'take_profit' => $takeProfit,
+                            'error' => $tpResult['error'],
+                        ]);
+                    } else {
+                        Log::info('Take profit set on Binance', [
+                            'symbol' => $aiDecision->symbol,
+                            'take_profit' => $takeProfit,
+                        ]);
+                    }
+                }
+
                 // Store trade in database
                 $trade = Trade::create([
                     'symbol' => $aiDecision->symbol,
@@ -158,8 +202,8 @@ class ExecuteTradeJob implements ShouldQueue
                     'entry_price' => $currentPrice,
                     'quantity' => $quantity,
                     'leverage' => $leverage,
-                    'stop_loss' => $aiDecision->recommended_stop_loss,
-                    'take_profit' => $aiDecision->recommended_take_profit,
+                    'stop_loss' => $stopLoss,
+                    'take_profit' => $takeProfit,
                     'status' => 'OPEN',
                     'binance_order_id' => $orderResult['orderId'] ?? null,
                     'ai_decision_id' => $aiDecision->id,
@@ -177,6 +221,8 @@ class ExecuteTradeJob implements ShouldQueue
                     'side' => $trade->side,
                     'entry_price' => $trade->entry_price,
                     'quantity' => $trade->quantity,
+                    'stop_loss' => $trade->stop_loss,
+                    'take_profit' => $trade->take_profit,
                 ]);
             } catch (\Exception $e) {
                 DB::rollBack();

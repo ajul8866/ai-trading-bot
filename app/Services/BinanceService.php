@@ -364,11 +364,13 @@ class BinanceService implements ExchangeInterface
             // If we have a LONG position, stop loss is a SELL order below entry
             // If we have a SHORT position, stop loss is a BUY order above entry
             $orderSide = $side === 'LONG' ? 'SELL' : 'BUY';
+            $positionSide = $side; // LONG or SHORT for Hedge Mode
 
             $timestamp = now()->timestamp * 1000;
             $params = [
                 'symbol' => $symbol,
                 'side' => $orderSide,
+                'positionSide' => $positionSide,
                 'type' => 'STOP_MARKET',
                 'stopPrice' => $stopPrice,
                 'closePosition' => true, // Close the entire position
@@ -386,7 +388,7 @@ class BinanceService implements ExchangeInterface
                 return $response->json();
             }
 
-            Log::error('Failed to set stop loss', ['params' => $params, 'response' => $response->body()]);
+            Log::error('Failed to set stop loss', ['symbol' => $symbol, 'stop_price' => $stopPrice, 'response' => $response->body()]);
 
             return ['error' => $response->body()];
         } catch (\Exception $e) {
@@ -407,11 +409,13 @@ class BinanceService implements ExchangeInterface
             // If we have a LONG position, take profit is a SELL order above entry
             // If we have a SHORT position, take profit is a BUY order below entry
             $orderSide = $side === 'LONG' ? 'SELL' : 'BUY';
+            $positionSide = $side; // LONG or SHORT for Hedge Mode
 
             $timestamp = now()->timestamp * 1000;
             $params = [
                 'symbol' => $symbol,
                 'side' => $orderSide,
+                'positionSide' => $positionSide,
                 'type' => 'TAKE_PROFIT_MARKET',
                 'stopPrice' => $takeProfitPrice,
                 'closePosition' => true, // Close the entire position
@@ -429,7 +433,7 @@ class BinanceService implements ExchangeInterface
                 return $response->json();
             }
 
-            Log::error('Failed to set take profit', ['params' => $params, 'response' => $response->body()]);
+            Log::error('Failed to set take profit', ['symbol' => $symbol, 'take_profit_price' => $takeProfitPrice, 'response' => $response->body()]);
 
             return ['error' => $response->body()];
         } catch (\Exception $e) {
