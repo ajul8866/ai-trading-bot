@@ -17,22 +17,35 @@
             @php
                 try {
                     $binanceService = app(\App\Services\BinanceService::class);
-                    $accountBalance = $binanceService->getAccountBalance();
-                    $openPositions = \App\Models\Trade::where('status', 'OPEN')->get();
-                    $unrealizedPnl = 0;
 
-                    foreach ($openPositions as $position) {
-                        $currentPrice = $binanceService->getCurrentPrice($position->symbol);
-                        if ($position->side === 'LONG') {
-                            $unrealizedPnl += ($currentPrice - $position->entry_price) * $position->quantity * $position->leverage;
-                        } else {
-                            $unrealizedPnl += ($position->entry_price - $currentPrice) * $position->quantity * $position->leverage;
+                    // Get full balance info from Binance
+                    $balanceInfo = $binanceService->getBalance();
+                    $totalBalance = 0;
+                    $availableBalance = 0;
+
+                    foreach ($balanceInfo as $asset) {
+                        if ($asset['asset'] == 'USDT') {
+                            $totalBalance = (float) $asset['balance'];
+                            $availableBalance = (float) $asset['availableBalance'];
+                            break;
                         }
                     }
 
-                    $equity = $accountBalance + $unrealizedPnl;
+                    $usedInMargin = $totalBalance - $availableBalance;
+
+                    // Get unrealized P&L from Binance positions
+                    $openPositions = $binanceService->getOpenPositions();
+                    $unrealizedPnl = 0;
+                    foreach ($openPositions as $position) {
+                        $unrealizedPnl += (float) ($position['unRealizedProfit'] ?? 0);
+                    }
+
+                    // Calculate equity (total balance + unrealized)
+                    $equity = $totalBalance + $unrealizedPnl;
                 } catch (\Exception $e) {
-                    $accountBalance = 0;
+                    $totalBalance = 0;
+                    $availableBalance = 0;
+                    $usedInMargin = 0;
                     $unrealizedPnl = 0;
                     $equity = 0;
                 }
