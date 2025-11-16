@@ -18,7 +18,19 @@ class AnalyzeMarketJob implements ShouldQueue
 {
     use Queueable;
 
-    public $timeout = 120; // 2 minutes timeout for AI analysis
+    /**
+     * CRITICAL FIX: Add retry configuration for reliability
+     */
+    public int $tries = 3; // Retry up to 3 times
+    public int $timeout = 120; // 2 minutes timeout for AI analysis
+
+    /**
+     * Exponential backoff delays (in seconds)
+     */
+    public function backoff(): array
+    {
+        return [10, 30, 60]; // Wait 10s, 30s, 60s between retries
+    }
 
     /**
      * Create a new job instance.

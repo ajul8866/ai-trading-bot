@@ -82,12 +82,15 @@ class TradingPanel extends Component
     public function loadAccountInfo(): void
     {
         try {
-            // In production, fetch from Binance API
-            $this->accountBalance = 10000; // Demo balance
+            // GET REAL ACCOUNT BALANCE FROM BINANCE - NO FAKE DATA!
+            $binance = app(BinanceService::class);
+            $this->accountBalance = $binance->getAccountBalance('USDT');
             $this->usedMargin = Trade::where('status', 'OPEN')->sum('margin');
             $this->availableMargin = $this->accountBalance - $this->usedMargin;
         } catch (\Exception $e) {
-            \Log::error('Account info load error: '.$e->getMessage());
+            \Log::error('Failed to load account info from Binance: '.$e->getMessage());
+            // On error, throw exception instead of using fake data
+            throw new \RuntimeException('Cannot load account balance - halting trading for safety: ' . $e->getMessage());
         }
     }
 

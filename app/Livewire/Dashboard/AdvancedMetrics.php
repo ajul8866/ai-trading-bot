@@ -223,7 +223,8 @@ class AdvancedMetrics extends Component
 
     private function calculateMaxDrawdown($trades): array
     {
-        $equity = 10000; // Starting equity
+        // GET REAL STARTING EQUITY - NO HARDCODED VALUES!
+        $equity = $this->getStartingEquity($trades);
         $peak = $equity;
         $maxDrawdown = 0;
         $maxDrawdownDuration = 0;
@@ -378,7 +379,8 @@ class AdvancedMetrics extends Component
             ->orderBy('closed_at')
             ->get();
 
-        $equity = 10000; // Starting balance
+        // GET REAL STARTING BALANCE - NO HARDCODED VALUES!
+        $equity = $this->getStartingEquity($trades);
         $this->equityCurve = [];
 
         foreach ($trades as $trade) {
@@ -479,6 +481,41 @@ class AdvancedMetrics extends Component
         }
 
         $this->streakAnalysis = $streaks;
+    }
+
+    /**
+     * Calculate REAL starting equity based on current Binance balance and historical PnL
+     * NO HARDCODED VALUES!
+     */
+    private function getStartingEquity($trades): float
+    {
+        try {
+            $binance = app(\App\Services\BinanceService::class);
+            $currentBalance = $binance->getAccountBalance('USDT');
+
+            // Calculate total PnL from the trades we're analyzing
+            $totalPnl = $trades->sum('pnl');
+
+            // Starting equity = Current balance - Total PnL from these trades
+            $startingEquity = $currentBalance - $totalPnl;
+
+            // Ensure we have a positive starting equity (safety check)
+            return max($startingEquity, 100); // Minimum $100 to avoid division by zero
+        } catch (\Exception $e) {
+            \Log::error('Failed to get starting equity from Binance: ' . $e->getMessage());
+
+            // If we can't get real balance, calculate from trades only
+            // This is a fallback - still better than hardcoded value
+            $totalPnl = $trades->sum('pnl');
+
+            // Assume starting equity based on oldest trade entry value
+            $oldestTrade = $trades->first();
+            if ($oldestTrade) {
+                return max($oldestTrade->margin * 10, 100); // Estimate based on margin used
+            }
+
+            throw new \RuntimeException('Cannot calculate starting equity - no real data available: ' . $e->getMessage());
+        }
     }
 
     public function updatedSelectedPeriod(): void

@@ -34,42 +34,17 @@ class MarketDepth extends Component
         $depthData = Cache::remember($cacheKey, 3, function () {
             try {
                 $binance = app(BinanceService::class);
+
+                // GET REAL ORDER BOOK DEPTH FROM BINANCE - NO FAKE DATA!
+                $depthData = $binance->getDepth($this->symbol, $this->depth);
                 $currentPrice = $binance->getCurrentPrice($this->symbol);
 
-                $bids = [];
-                $asks = [];
-
-                // Generate realistic depth data
-                $bidCumulative = 0;
-                for ($i = 0; $i < $this->depth; $i++) {
-                    $bidPrice = $currentPrice * (1 - (($i + 1) * 0.0002));
-                    $bidSize = rand(500, 5000) / 10;
-                    $bidCumulative += $bidSize;
-
-                    $bids[] = [
-                        'price' => $bidPrice,
-                        'cumulative' => $bidCumulative,
-                    ];
-                }
-
-                $askCumulative = 0;
-                for ($i = 0; $i < $this->depth; $i++) {
-                    $askPrice = $currentPrice * (1 + (($i + 1) * 0.0002));
-                    $askSize = rand(500, 5000) / 10;
-                    $askCumulative += $askSize;
-
-                    $asks[] = [
-                        'price' => $askPrice,
-                        'cumulative' => $askCumulative,
-                    ];
-                }
-
                 return [
-                    'bids' => $bids,
-                    'asks' => $asks,
+                    'bids' => $depthData['bids'],
+                    'asks' => $depthData['asks'],
                     'currentPrice' => $currentPrice,
-                    'maxBidDepth' => $bidCumulative,
-                    'maxAskDepth' => $askCumulative,
+                    'maxBidDepth' => $depthData['maxBidDepth'],
+                    'maxAskDepth' => $depthData['maxAskDepth'],
                 ];
             } catch (\Exception $e) {
                 \Log::error('MarketDepth load error: '.$e->getMessage());
