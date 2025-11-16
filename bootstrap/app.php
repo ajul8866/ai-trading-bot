@@ -26,7 +26,7 @@ return Application::configure(basePath: dirname(__DIR__))
             ->name('monitor-positions')
             ->withoutOverlapping();
 
-        // Fetch market data and analyze every 3 minutes
+        // Fetch market data every 3 minutes
         $schedule->call(function () {
             $tradingPairs = json_decode(Setting::where('key', 'trading_pairs')->value('value') ?? '[]', true);
             $timeframes = json_decode(Setting::where('key', 'timeframes')->value('value') ?? '[]', true);
@@ -46,12 +46,10 @@ return Application::configure(basePath: dirname(__DIR__))
                 }
             }
 
-            // Wait a bit for market data to be fetched, then analyze
-            sleep(10);
-
-            // Analyze market for each trading pair
+            // Analyze market for each trading pair with delay to allow data fetching
+            // Use delayed jobs instead of blocking sleep()
             foreach ($tradingPairs as $symbol) {
-                AnalyzeMarketJob::dispatch($symbol);
+                AnalyzeMarketJob::dispatch($symbol)->delay(now()->addSeconds(15));
             }
         })
             ->everyThreeMinutes()
