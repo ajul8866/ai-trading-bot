@@ -50,6 +50,24 @@
                                placeholder="Your Binance API Secret">
                     </div>
                     <div>
+                        <label class="block text-sm font-medium text-gray-300 mb-2">Binance Mode</label>
+                        <div class="flex items-center gap-4">
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" wire:model="binance_testnet" class="sr-only peer">
+                                <div class="w-14 h-7 bg-gray-700 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-orange-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-orange-600"></div>
+                            </label>
+                            <div class="flex flex-col">
+                                <span class="text-sm font-medium {{ $binance_testnet ? 'text-orange-400' : 'text-green-400' }}">
+                                    {{ $binance_testnet ? 'TESTNET MODE' : 'MAINNET (LIVE)' }}
+                                </span>
+                                <span class="text-xs text-gray-500">
+                                    {{ $binance_testnet ? 'Testing with fake money' : 'Trading with real money' }}
+                                </span>
+                            </div>
+                        </div>
+                        <p class="text-xs text-gray-400 mt-2">⚠️ Use testnet for testing without risking real funds</p>
+                    </div>
+                    <div>
                         <label class="block text-sm font-medium text-gray-300 mb-2">OpenRouter API Key</label>
                         <div class="flex gap-2">
                             <input type="password" wire:model="openrouter_api_key"

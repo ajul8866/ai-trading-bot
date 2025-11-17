@@ -13,12 +13,18 @@ class BinanceService implements ExchangeInterface
 
     private string $apiSecret;
 
-    private string $baseUrl = 'https://fapi.binance.com'; // Futures API
+    private string $baseUrl;
 
     public function __construct()
     {
         $this->apiKey = Setting::getValue('binance_api_key', '');
         $this->apiSecret = Setting::getValue('binance_api_secret', '');
+
+        // Use testnet URL if testnet mode is enabled
+        $isTestnet = Setting::getValue('binance_testnet', 'false') === 'true';
+        $this->baseUrl = $isTestnet
+            ? 'https://testnet.binancefuture.com'
+            : 'https://fapi.binance.com';
     }
 
     /**

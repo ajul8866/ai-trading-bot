@@ -15,6 +15,7 @@ class Settings extends Component
     // API Keys
     public $binance_api_key = '';
     public $binance_api_secret = '';
+    public $binance_testnet = false;
     public $openrouter_api_key = '';
 
     // Trading Configuration
@@ -61,6 +62,7 @@ class Settings extends Component
         // API Keys
         $this->binance_api_key = $settings->get('binance_api_key')?->value ?? '';
         $this->binance_api_secret = $settings->get('binance_api_secret')?->value ?? '';
+        $this->binance_testnet = $settings->get('binance_testnet')?->value === 'true' || $settings->get('binance_testnet')?->value === '1' || $settings->get('binance_testnet')?->value === true;
         $this->openrouter_api_key = $settings->get('openrouter_api_key')?->value ?? '';
 
         // Trading Configuration
@@ -105,6 +107,7 @@ class Settings extends Component
             // API Keys
             Setting::updateOrCreate(['key' => 'binance_api_key'], ['value' => $this->binance_api_key]);
             Setting::updateOrCreate(['key' => 'binance_api_secret'], ['value' => $this->binance_api_secret]);
+            Setting::updateOrCreate(['key' => 'binance_testnet'], ['value' => $this->binance_testnet ? 'true' : 'false']);
             Setting::updateOrCreate(['key' => 'openrouter_api_key'], ['value' => $this->openrouter_api_key]);
 
             // Trading Configuration
