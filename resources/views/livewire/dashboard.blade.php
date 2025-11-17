@@ -23,25 +23,36 @@
                     $totalBalance = 0;
                     $availableBalance = 0;
 
-                    foreach ($balanceInfo as $asset) {
-                        if ($asset['asset'] == 'USDT') {
-                            $totalBalance = (float) $asset['balance'];
-                            $availableBalance = (float) $asset['availableBalance'];
-                            break;
+                    // Check if response has error
+                    if (!isset($balanceInfo['error'])) {
+                        foreach ($balanceInfo as $asset) {
+                            if (isset($asset['asset']) && $asset['asset'] == 'USDT') {
+                                $totalBalance = (float) $asset['balance'];
+                                $availableBalance = (float) $asset['availableBalance'];
+                                break;
+                            }
                         }
+
+                        $usedInMargin = $totalBalance - $availableBalance;
+
+                        // Get unrealized P&L from Binance positions
+                        $openPositions = $binanceService->getOpenPositions();
+                        $unrealizedPnl = 0;
+                        if (!isset($openPositions['error'])) {
+                            foreach ($openPositions as $position) {
+                                $unrealizedPnl += (float) ($position['unRealizedProfit'] ?? 0);
+                            }
+                        }
+
+                        // Calculate equity (total balance + unrealized)
+                        $equity = $totalBalance + $unrealizedPnl;
+                    } else {
+                        $totalBalance = 0;
+                        $availableBalance = 0;
+                        $usedInMargin = 0;
+                        $unrealizedPnl = 0;
+                        $equity = 0;
                     }
-
-                    $usedInMargin = $totalBalance - $availableBalance;
-
-                    // Get unrealized P&L from Binance positions
-                    $openPositions = $binanceService->getOpenPositions();
-                    $unrealizedPnl = 0;
-                    foreach ($openPositions as $position) {
-                        $unrealizedPnl += (float) ($position['unRealizedProfit'] ?? 0);
-                    }
-
-                    // Calculate equity (total balance + unrealized)
-                    $equity = $totalBalance + $unrealizedPnl;
                 } catch (\Exception $e) {
                     $totalBalance = 0;
                     $availableBalance = 0;
