@@ -264,7 +264,8 @@ class BinanceService implements ExchangeInterface
         $positionSide = $side; // LONG or SHORT
 
         // Close position using market order with positionSide parameter for hedge mode
-        return $this->placeMarketOrder($symbol, $closeSide, $quantity, null, $positionSide);
+        // Leverage doesn't matter when closing, use 1
+        return $this->placeMarketOrder($symbol, $closeSide, $quantity, 1, $positionSide);
     }
 
     public function getBalance(): array
