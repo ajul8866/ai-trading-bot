@@ -84,7 +84,8 @@ class ExecuteTradeJob implements ShouldQueue
 
             // Handle CLOSE decision - close existing position
             if ($aiDecision->decision === 'CLOSE') {
-                return $this->handleCloseDecision($aiDecision, $binanceService);
+                $this->handleCloseDecision($aiDecision, $binanceService);
+                return;
             }
 
             // Use database transaction for consistency
