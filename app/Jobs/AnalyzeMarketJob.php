@@ -148,7 +148,12 @@ class AnalyzeMarketJob implements ShouldQueue
             // Execute trade if decision meets criteria
             $minConfidence = (int) Setting::where('key', 'min_confidence')->value('value') ?? 70;
 
-            if ($decision->shouldExecute($minConfidence) && $riskService->canOpenPosition()) {
+            // For CLOSE decisions, skip max position check (we're closing, not opening)
+            // For BUY/SELL, check if we can open a new position
+            $canExecute = $decision->shouldExecute($minConfidence) &&
+                         ($decision->decision === 'CLOSE' || $riskService->canOpenPosition());
+
+            if ($canExecute) {
                 Log::info('Decision meets execution criteria, dispatching execution job', [
                     'symbol' => $this->symbol,
                     'decision' => $decision->decision,
