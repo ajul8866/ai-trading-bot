@@ -82,6 +82,11 @@ class ExecuteTradeJob implements ShouldQueue
                 'decision' => $aiDecision->decision,
             ]);
 
+            // Handle CLOSE decision - close existing position
+            if ($aiDecision->decision === 'CLOSE') {
+                return $this->handleCloseDecision($aiDecision, $binanceService);
+            }
+
             // Use database transaction for consistency
             DB::beginTransaction();
 
@@ -241,6 +246,89 @@ class ExecuteTradeJob implements ShouldQueue
                 'trace' => $e->getTraceAsString(),
             ]);
 
+            throw $e;
+        }
+    }
+
+    /**
+     * Handle CLOSE decision - close existing open position
+     */
+    private function handleCloseDecision(AiDecision $aiDecision, BinanceService $binanceService): void
+    {
+        try {
+            Log::info('Handling CLOSE decision', [
+                'ai_decision_id' => $aiDecision->id,
+                'symbol' => $aiDecision->symbol,
+            ]);
+
+            // Find the open position for this symbol
+            $openTrade = Trade::where('symbol', $aiDecision->symbol)
+                ->where('status', 'OPEN')
+                ->first();
+
+            if (!$openTrade) {
+                Log::warning('No open position found to close', [
+                    'symbol' => $aiDecision->symbol,
+                ]);
+                $aiDecision->update(['executed' => true]);
+                return;
+            }
+
+            Log::info('Closing position on Binance', [
+                'trade_id' => $openTrade->id,
+                'symbol' => $openTrade->symbol,
+                'side' => $openTrade->side,
+                'quantity' => $openTrade->quantity,
+            ]);
+
+            // Close the position on Binance
+            $closeResult = $binanceService->closePosition(
+                $openTrade->symbol,
+                $openTrade->quantity,
+                $openTrade->side
+            );
+
+            if (isset($closeResult['error'])) {
+                throw new \Exception('Failed to close position on Binance: ' . $closeResult['error']);
+            }
+
+            // Get current price for P&L calculation
+            $currentPrice = $binanceService->getCurrentPrice($openTrade->symbol);
+
+            // Calculate P&L
+            $priceDiff = $currentPrice - $openTrade->entry_price;
+            if ($openTrade->side === 'SHORT') {
+                $priceDiff = -$priceDiff;
+            }
+            $pnl = $priceDiff * $openTrade->quantity;
+            $pnlPercentage = ($priceDiff / $openTrade->entry_price) * 100;
+
+            // Update trade in database
+            DB::transaction(function () use ($openTrade, $currentPrice, $pnl, $pnlPercentage, $aiDecision) {
+                $openTrade->update([
+                    'status' => 'CLOSED',
+                    'exit_price' => $currentPrice,
+                    'pnl' => $pnl,
+                    'pnl_percentage' => $pnlPercentage,
+                    'closed_at' => now(),
+                ]);
+
+                $aiDecision->update(['executed' => true]);
+            });
+
+            Log::info('Position closed successfully', [
+                'trade_id' => $openTrade->id,
+                'exit_price' => $currentPrice,
+                'pnl' => $pnl,
+                'pnl_percentage' => $pnlPercentage,
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Error closing position', [
+                'ai_decision_id' => $aiDecision->id,
+                'symbol' => $aiDecision->symbol,
+                'error' => $e->getMessage(),
+            ]);
             throw $e;
         }
     }
