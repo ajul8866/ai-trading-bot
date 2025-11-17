@@ -114,7 +114,7 @@ class BinanceService implements ExchangeInterface
         }
     }
 
-    public function placeMarketOrder(string $symbol, string $side, float $quantity, int $leverage = 1): array
+    public function placeMarketOrder(string $symbol, string $side, float $quantity, int $leverage = 1, ?string $positionSide = null): array
     {
         if (empty($this->apiKey) || empty($this->apiSecret)) {
             return ['error' => 'API credentials not configured'];
@@ -138,7 +138,11 @@ class BinanceService implements ExchangeInterface
             $timestamp = now()->timestamp * 1000;
 
             // Determine position side for Hedge Mode
-            $positionSide = $side === 'BUY' ? 'LONG' : 'SHORT';
+            // If not provided, infer from order side (for opening new positions)
+            // If provided (for closing), use the provided value
+            if ($positionSide === null) {
+                $positionSide = $side === 'BUY' ? 'LONG' : 'SHORT';
+            }
 
             $params = [
                 'symbol' => $symbol,
@@ -257,8 +261,10 @@ class BinanceService implements ExchangeInterface
     {
         // To close a LONG, we SELL. To close a SHORT, we BUY
         $closeSide = $side === 'LONG' ? 'SELL' : 'BUY';
+        $positionSide = $side; // LONG or SHORT
 
-        return $this->placeMarketOrder($symbol, $closeSide, $quantity);
+        // Close position using market order with positionSide parameter for hedge mode
+        return $this->placeMarketOrder($symbol, $closeSide, $quantity, null, $positionSide);
     }
 
     public function getBalance(): array
