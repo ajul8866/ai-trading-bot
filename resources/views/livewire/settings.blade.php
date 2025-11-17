@@ -144,8 +144,8 @@
                         <label class="block text-sm font-medium text-gray-300 mb-2">Default Leverage</label>
                         <input type="number" wire:model="default_leverage"
                                class="w-full bg-gray-800 border border-gray-600 rounded px-3 py-2 text-white focus:ring-2 focus:ring-blue-500"
-                               min="1" max="5" step="1">
-                        <p class="text-xs text-gray-400 mt-1">Leverage for trades (max 5x for subaccount)</p>
+                               min="1" max="50" step="1">
+                        <p class="text-xs text-gray-400 mt-1">Leverage for trades (1x - 50x)</p>
                     </div>
                 </div>
             </div>
